@@ -126,6 +126,10 @@ void sparkleInit(uint8_t section) {
   neopxlObjArr[section].setPixelColor(sparklePxl, sunColor);
   neopxlObjArr[section].show();
 
+  // small change
+
+  uint8_t bidon;
+
 }
 
 // Create a sparkling effect for a whole section (strip)
