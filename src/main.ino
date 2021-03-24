@@ -74,7 +74,7 @@ void loop() {
 
   if(!sparkleTrig) {
     sparkleInit(0);
-    //sparkleInit(1);
+    sparkleInit(1);
     sparkleTrig = !sparkleTrig;
   }
 

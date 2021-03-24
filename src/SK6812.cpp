@@ -118,7 +118,7 @@ void sparkleInit(uint8_t section) {
 
   // updating pxl attributes
   stripsArrayOfPxl[section][sparklePxl].timeStart = millis();
-  stripsArrayOfPxl[section][sparklePxl].actionDuration = 3000;
+  stripsArrayOfPxl[section][sparklePxl].actionDuration = 50;
   stripsArrayOfPxl[section][sparklePxl].pxlState = SPARKLE;
   stripsArrayOfPxl[section][sparklePxl].rgbwColor = sunColor;
 
@@ -128,25 +128,13 @@ void sparkleInit(uint8_t section) {
 }
 
 // Create a sparkling effect for a whole section (strip)
-void sparkleSct(pixelInfo_s pixel) {
-
-  /*
-  static uint32_t startTime = millis();
-  static uint8_t  sparklePxl = random(neopxlObjArr[section].numPixels());
-  static uint8_t  onTime = 1000;
-
-  // sparkle rand pixel at sun color. Following if is executed once in main
-  if(stripsArrayOfPxl[section][sparklePxl].pxlState != SPARKLE) {
-    neopxlObjArr[section].setPixelColor(sparklePxl, sunColor);
-    neopxlObjArr[section].show();
-    stripsArrayOfPxl[section][sparklePxl].pxlState = SPARKLE;
-    stripsArrayOfPxl[section][sparklePxl].rgbwColor = sunColor;
-  }
-  */
+void sparkleSct(pixelInfo pixel) {
 
   if(millis() - pixel.timeStart >= pixel.actionDuration) {
 
-    Serial.println("here");
+    //Serial.println(millis() - pixel.timeStart);
+    //Serial.println(pixel.actionDuration);
+    //Serial.println(pixel.pxlNbr);
 
     // turn OFF pixel and actualize pxl attributes
     neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, 0x00000000);
@@ -165,6 +153,7 @@ void sparkleSct(pixelInfo_s pixel) {
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].pxlState = SPARKLE;
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].rgbwColor = sunColor;
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].timeStart = millis();
+    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionDuration = stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionDuration;
     neopxlObjArr[pixel.pxlSct].show();
   }
 }
