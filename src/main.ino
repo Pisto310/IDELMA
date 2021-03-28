@@ -20,7 +20,13 @@ char btBuffer[64];
 
 bool btFlag = 1;
 
-bool sparkleTrig = 0;
+bool sparkleTrig = 1;
+
+bool hueTest = 0;
+uint32_t hsvTest;
+uint16_t hue;
+uint8_t sat;
+uint8_t val;
 
 uint16_t heartBeat = 1000;                  // in milliseconds
 
@@ -78,9 +84,20 @@ void loop() {
     sparkleTrig = !sparkleTrig;
   }
 
-  pxlIterator(2);
+  if(!hueTest) {
+    
+    hsvTest = rgbw2hsv(0x6f067b00);
+    Serial.println(hsvTest);
+    
+    hue = uint16_t((hsvTest & 0xFFFF0000) >> 16);
+    sat = uint8_t ((hsvTest & 0x0000FF00) >> 8);
+    val = uint8_t  (hsvTest & 0x000000FF);
 
-  //sparkle(section1, 0x00, 0x00, 0x00, 0xFF, 25);
+    Serial.println(uint32_t(neopxlObjArr[0].ColorHSV(hue, sat, val)));
+    hueTest = !hueTest;
+  }
+
+  pxlIterator(2);
 
   /*
   serialReadToArray(Serial1, btBuffer, 64);

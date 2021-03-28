@@ -5,7 +5,6 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "Adafruit_NeoPixel.h"
 #include "Arduino.h"
 #include "User_Lib.h"
-#include "SimpleTimer.h"
 
 // sections count, to be adjusted for each project
 #define SCT_COUNT           8
@@ -62,12 +61,12 @@ static const PROGMEM uint32_t colorsLookup[24][6] = {
 };
 
 // struct to store the info of each pixel
-
 typedef struct pixelInfo_s {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
   uint32_t  rgbwColor;            // actual rgbw color of pixel
+  uint32_t  targetColor;          // target color for fade from start color
   uint32_t  timeStart;            // start time to compare with elapsed time 
   uint32_t  actionDuration;       // time to run out until next action
 }pixelInfo;
@@ -94,10 +93,9 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
-void setPixel(Adafruit_NeoPixel &neopxlObj, uint16_t pixel, uint8_t red, uint8_t blu, uint8_t grn, uint8_t wht);
-void colorDecomposer(uint8_t destArray[], uint32_t longColor, uint8_t startIndx);
-uint32_t rgbw2wrgb(uint32_t rgbwColor);
 void pxlIterator(uint8_t sctCount);
+uint32_t rgbw2wrgb(uint32_t rgbwColor);
+uint32_t rgbw2hsv(uint32_t color);
 
 void sparkleInit(uint8_t section);
 void sparkleSct(pixelInfo_s pixel);
