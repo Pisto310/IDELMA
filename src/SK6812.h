@@ -65,10 +65,12 @@ typedef struct pixelInfo_s {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
-  uint32_t  rgbwColor;            // actual rgbw color of pixel
-  uint32_t  targetColor;          // target color for fade from start color
-  uint32_t  timeStart;            // start time to compare with elapsed time 
-  uint32_t  actionDuration;       // time to run out until next action
+  uint32_t  actionOneTime;        // time between each step for hue (hueFade) or red (lerpFade), or onTime for sparkle effect
+  uint32_t  actionTwoTime;        // time between each step for sat (hueFade) or grn (lerpFade)
+  uint32_t  actionThreeTime;      // time between each step for val (hueFade) or blu (lerpFade)
+  uint32_t  actionOneStart;       // start time for action one
+  uint32_t  actionTwoStart;       // start time for action two
+  uint32_t  actionThreeStart;     // start time for action three
 }pixelInfo;
 
 enum activeLedAction {

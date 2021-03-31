@@ -35,7 +35,6 @@ void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[],
   for(uint8_t index = 0; index < neopxlObj.numPixels(); index++) {
     stripsArrayOfPxl[*ptrToSctTracker][index].pxlSct = *ptrToSctTracker;
     stripsArrayOfPxl[*ptrToSctTracker][index].pxlNbr = index;
-    stripsArrayOfPxl[*ptrToSctTracker][index].rgbwColor = startColor;
     if(!startColor) {
       stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = OFF;
     }
@@ -161,10 +160,9 @@ void sparkleInit(uint8_t section) {
   uint8_t sparklePxl = random(neopxlObjArr[section].numPixels());
 
   // updating pxl attributes
-  stripsArrayOfPxl[section][sparklePxl].timeStart = millis();
-  stripsArrayOfPxl[section][sparklePxl].actionDuration = 50;
+  stripsArrayOfPxl[section][sparklePxl].actionOneStart = millis();
+  stripsArrayOfPxl[section][sparklePxl].actionOneTime = 50;
   stripsArrayOfPxl[section][sparklePxl].pxlState = SPARKLE;
-  stripsArrayOfPxl[section][sparklePxl].rgbwColor = sunColor;
 
   // update neopxlObj
   neopxlObjArr[section].setPixelColor(sparklePxl, sunColor);
@@ -174,11 +172,10 @@ void sparkleInit(uint8_t section) {
 // Create a sparkling effect for a whole section (strip)
 void sparkleSct(pixelInfo pixel) {
 
-  if(millis() - pixel.timeStart >= pixel.actionDuration) {
+  if(millis() - pixel.actionOneStart >= pixel.actionOneTime) {
 
     // turn OFF pixel and actualize pxl attributes
     neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, 0x00000000);
-    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor = 0x00000000;
     stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].pxlState = OFF;
     
     uint8_t nextSparklePxl = random(neopxlObjArr[pixel.pxlSct].numPixels());
@@ -191,11 +188,71 @@ void sparkleSct(pixelInfo pixel) {
     // turn ON next pixel and actualize attributes
     neopxlObjArr[pixel.pxlSct].setPixelColor(nextSparklePxl, sunColor);
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].pxlState = SPARKLE;
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].rgbwColor = sunColor;
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].timeStart = millis();
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionDuration = 50;
+    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneStart = millis();
+    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneTime = 50;
     neopxlObjArr[pixel.pxlSct].show();
   }
+}
+
+// Initialize a fade action using the HSV color space for a pixel in a specific section
+// target color passed as argument is of the 0xRRGGBBWW format
+void hueFadeInit(uint8_t pixel, uint8_t section, uint32_t targetRGB, uint32_t fadeTime) {
+  
+  // transition from RGB to HSV color space for actual and target color
+  uint32_t actualHSV = rgbw2hsv(neopxlObjArr[section].getPixelColor(pixel));
+  uint32_t targetHSV = rgbw2hsv(targetRGB);
+
+  // extract hue, sat & val from actual and target colors
+  uint16_t actualHue = uint16_t((actualHSV & 0xFFFF0000) >> 16);
+  uint8_t  actualSat = uint8_t ((actualHSV & 0x0000FF00) >>  8);
+  uint8_t  actualVal = uint8_t  (actualHSV & 0x000000FF)       ;
+
+  uint16_t targetHue = uint16_t((targetHSV & 0xFFFF0000) >> 16);
+  uint8_t  targetSat = uint8_t ((targetHSV & 0x0000FF00) >>  8);
+  uint8_t  targetVal = uint8_t  (targetHSV & 0x000000FF)       ;
+
+  // Since hue is representative of a circle's angle, we want to find the way of rotation
+  // with the shorter length to minimize the variety of colors in the fade
+  int16_t hueDelta = 0;
+
+  if(targetHue - actualHue == 32768 || actualHue - targetHue == 32768) {
+    // means the target is exactly half a circle away, direction has no importance
+    hueDelta = targetHue - actualHue;
+  }
+  else if(targetHue > actualHue) {
+    if((targetHue - actualHue) < 32768) {
+      // clockwise rotation
+      hueDelta = targetHue - actualHue;
+    }
+    else if((targetHue - actualHue) > 32768) {
+      // counter-clockwise rotation
+      hueDelta = (targetHue - actualHue) - 65535;
+    }
+  }
+  else if(actualHue > targetHue) {
+    if((actualHue - targetHue) > 32768) {
+      // clockwise rotation
+      hueDelta = actualHue - targetHue;
+    }
+    else if((actualHue - targetHue) < 32768) {
+      // counter-clockwise rotation
+      hueDelta = (actualHue + targetHue) - 65535;
+    }
+  }
+
+  // calculations for saturation and value deltas
+  int16_t satDelta = targetSat - actualSat;
+  int16_t valDelta = targetVal - actualVal;
+
+  // steps are calculated and are expressed in ms/bit
+  uint32_t hueStep = fadeTime / hueStep;
+  uint32_t satStep = fadeTime / satDelta;
+  uint32_t valStep = fadeTime / valDelta;
+
+}
+
+void hueFade(pixelInfo pixel) {
+
 }
 
 

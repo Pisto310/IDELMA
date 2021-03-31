@@ -22,7 +22,7 @@ bool btFlag = 1;
 
 bool sparkleTrig = 1;
 
-bool hueTest = 0;
+bool hueTest = 1;
 uint32_t hsvTest;
 uint16_t hue;
 uint8_t sat;
