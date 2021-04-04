@@ -65,25 +65,27 @@ typedef struct pixelInfo_s {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
-  uint32_t  actionOneTime;        // time between each step for hue (hueFade) or red (lerpFade), or onTime for sparkle effect
-  uint32_t  actionTwoTime;        // time between each step for sat (hueFade) or grn (lerpFade)
-  uint32_t  actionThreeTime;      // time between each step for val (hueFade) or blu (lerpFade)
+  int32_t   actionOneTime;        // time between each step for hue (hueFade) or red (lerpFade), or onTime for sparkle effect
+  int32_t   actionTwoTime;        // time between each step for sat (hueFade) or grn (lerpFade)
+  int32_t   actionThreeTime;      // time between each step for val (hueFade) or blu (lerpFade)
   uint32_t  actionOneStart;       // start time for action one
   uint32_t  actionTwoStart;       // start time for action two
   uint32_t  actionThreeStart;     // start time for action three
+  uint32_t  rgbwColor;            // actual rgbw color of the pixel. tried using getPixelColor(), but not precise at all
+  uint32_t  targetColor;          // registered target RGBW color for HSV_FADE or LERP_FADE action
 }pixelInfo;
 
 enum activeLedAction {
   IDLE,                         // LED is ready for action
-  ON,                           // LED is full on
-  OFF,                          // LED is full off
-  FADE,                         // LED is in the process of fading
+  HSV_FADE,                     // LED is in the process of fading in HSV color space
+  LERP_FADE,                    // LED is in the process of fading in RGB color space
   SPARKLE                       // LED is in the process of sparkling
 };
 
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 extern Adafruit_NeoPixel sctZero;
+extern Adafruit_NeoPixel sctTwo;
 extern Adafruit_NeoPixel sctSix;
 
 // 2D array containing the section number (row) and each pixel of that section (column)
@@ -97,7 +99,10 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
 void pxlIterator(uint8_t sctCount);
 uint32_t rgbw2wrgb(uint32_t rgbwColor);
+uint32_t wrgb2rgbw(uint32_t wrgbColor);
 uint32_t rgbw2hsv(uint32_t color);
 
 void sparkleInit(uint8_t section);
 void sparkleSct(pixelInfo_s pixel);
+void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fadeTime);
+void hsvFade(pixelInfo pixel);

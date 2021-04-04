@@ -39,3 +39,13 @@ void mcuHeartBeat(uint16_t heartBeat) {
     digitalWrite(LED_BUILTIN, ledState);
   }
 }
+
+// function that returns the absolute of a 32-bit signed variable
+uint32_t absVar(int32_t val) {
+  if(val & 0x80000000) {
+    return(~val + 1);
+  }
+  else {
+    return(val);
+  }
+}

@@ -6,12 +6,11 @@
 
 //HC-06 module address 00-14-03-05-5A-D5
 
-/*!
-  @brief   Brief of func
-  @param   var  explanation
-  @return  What the function returns
-  @note   Write if necessary
-*/
+
+
+
+
+//************    TEST VAR DECLARATIOIN     **************
 
 char play[5] = "play";
 char stop[5] = "stop";
@@ -20,13 +19,30 @@ char btBuffer[64];
 
 bool btFlag = 1;
 
-bool sparkleTrig = 1;
+bool sparkleTest = 0;
 
-bool hueTest = 1;
+bool hueTest = 0;
 uint32_t hsvTest;
 uint16_t hue;
 uint8_t sat;
 uint8_t val;
+
+bool hsvFadeTest = 1;
+uint32_t orangeTarget  = 0xFFA60000;
+uint32_t yellowTarget  = 0xFFFF0000;
+uint32_t brightYellow  = 0xFFFF8000;
+uint32_t blueTarget    = 0x0000FF00;
+uint32_t cyanTarget    = 0x00FFFF00;
+uint32_t brightCyan    = 0x80FFFF00;
+uint32_t lowCyan       = 0x4B7D7D00;
+uint32_t randomTarget  = 0x9fc9a600;
+
+//************    TEST VAR DECLARATIOIN     **************
+
+
+
+
+
 
 uint16_t heartBeat = 1000;                  // in milliseconds
 
@@ -64,6 +80,7 @@ void setup() {
   //*************   STRIP AND LEDS SET-UP   *************//
   
   neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  neopxlObjSetUp(sctTwo, neopxlObjArr, ptrSctCntTracker, brightnessLED, 0xFF000000);
   neopxlObjSetUp(sctSix, neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
@@ -78,13 +95,13 @@ void loop() {
     mcuHeartBeat(heartBeat);
   }
 
-  if(!sparkleTrig) {
+  if(sparkleTest) {
     sparkleInit(0);
     sparkleInit(1);
-    sparkleTrig = !sparkleTrig;
+    sparkleTest = !sparkleTest;
   }
 
-  if(!hueTest) {
+  if(hueTest) {
     
     hsvTest = rgbw2hsv(0x6f067b00);
     Serial.println(hsvTest);
@@ -95,6 +112,12 @@ void loop() {
 
     Serial.println(uint32_t(neopxlObjArr[0].ColorHSV(hue, sat, val)));
     hueTest = !hueTest;
+  }
+
+  if(hsvFadeTest) {
+    
+    hsvFadeInit(1, 0, lowCyan, 30000);
+    hsvFadeTest = !hsvFadeTest;
   }
 
   pxlIterator(2);

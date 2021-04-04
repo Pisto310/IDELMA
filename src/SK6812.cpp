@@ -10,6 +10,7 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
 Adafruit_NeoPixel sctZero = Adafruit_NeoPixel(LED_COUNT_SCT_1, PIN_SCT_1, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel sctTwo = Adafruit_NeoPixel(LED_COUNT_SCT_2, PIN_SCT_2, NEO_GRBW + NEO_KHZ800);
 Adafruit_NeoPixel sctSix = Adafruit_NeoPixel(LED_COUNT_SCT_6, PIN_SCT_6, NEO_GRBW + NEO_KHZ800);
 
 pixelInfo stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
@@ -35,12 +36,8 @@ void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[],
   for(uint8_t index = 0; index < neopxlObj.numPixels(); index++) {
     stripsArrayOfPxl[*ptrToSctTracker][index].pxlSct = *ptrToSctTracker;
     stripsArrayOfPxl[*ptrToSctTracker][index].pxlNbr = index;
-    if(!startColor) {
-      stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = OFF;
-    }
-    else { 
-      stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = ON;
-    }
+    stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = IDLE;
+    stripsArrayOfPxl[*ptrToSctTracker][index].rgbwColor = startColor;
   }
   // done here since it needs to be done for each instanciated neopxlObj
   neopxlObj.begin();
@@ -62,15 +59,15 @@ void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[],
 void pxlIterator(uint8_t sctCount) {
   for(uint8_t i = 0; i < sctCount; i++) {
     for(uint8_t j = 0; j < neopxlObjArr[i].numPixels(); j++) {
-      
       switch (stripsArrayOfPxl[i][j].pxlState) {
-      case ON:
-        break;
-      
-      case OFF:
-        break;
-
-      case FADE:
+      case HSV_FADE:
+        if(stripsArrayOfPxl[i][j].rgbwColor != stripsArrayOfPxl[i][j].targetColor) {
+          hsvFade(stripsArrayOfPxl[i][j]);
+        }
+        else {
+          stripsArrayOfPxl[i][j].pxlState = IDLE;
+          Serial.println("here");
+        }
         break;
 
       case SPARKLE:
@@ -78,7 +75,7 @@ void pxlIterator(uint8_t sctCount) {
         break;
       
       default:
-        stripsArrayOfPxl[i][j].pxlState = IDLE;
+        stripsArrayOfPxl[i][j].pxlState = IDLE;       // check if statement is useful
         break;
       }
     }
@@ -87,6 +84,10 @@ void pxlIterator(uint8_t sctCount) {
 
 uint32_t rgbw2wrgb(uint32_t rgbwColor) {
   return((rgbwColor >> 8) | (rgbwColor << 24));
+}
+
+uint32_t wrgb2rgbw(uint32_t wrgbColor) {
+  return((wrgbColor << 8) | wrgbColor >> 24);
 }
 
 // converts from RGB to HSV color space
@@ -148,7 +149,7 @@ uint32_t rgbw2hsv(uint32_t color) {
 
 
 
-//******   LED SCENES SECTION   ******//
+//******   LED EFFECTS SECTION   ******//
 
 
 
@@ -163,6 +164,7 @@ void sparkleInit(uint8_t section) {
   stripsArrayOfPxl[section][sparklePxl].actionOneStart = millis();
   stripsArrayOfPxl[section][sparklePxl].actionOneTime = 50;
   stripsArrayOfPxl[section][sparklePxl].pxlState = SPARKLE;
+  stripsArrayOfPxl[section][sparklePxl].rgbwColor = sunColor;
 
   // update neopxlObj
   neopxlObjArr[section].setPixelColor(sparklePxl, sunColor);
@@ -172,11 +174,12 @@ void sparkleInit(uint8_t section) {
 // Create a sparkling effect for a whole section (strip)
 void sparkleSct(pixelInfo pixel) {
 
-  if(millis() - pixel.actionOneStart >= pixel.actionOneTime) {
+  if(millis() - pixel.actionOneStart >= absVar(pixel.actionOneTime)) {
 
     // turn OFF pixel and actualize pxl attributes
-    neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, 0x00000000);
-    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].pxlState = OFF;
+    neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, 0);
+    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].pxlState = IDLE;
+    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor = 0;
     
     uint8_t nextSparklePxl = random(neopxlObjArr[pixel.pxlSct].numPixels());
     
@@ -188,6 +191,7 @@ void sparkleSct(pixelInfo pixel) {
     // turn ON next pixel and actualize attributes
     neopxlObjArr[pixel.pxlSct].setPixelColor(nextSparklePxl, sunColor);
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].pxlState = SPARKLE;
+    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].rgbwColor = sunColor;
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneStart = millis();
     stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneTime = 50;
     neopxlObjArr[pixel.pxlSct].show();
@@ -196,20 +200,39 @@ void sparkleSct(pixelInfo pixel) {
 
 // Initialize a fade action using the HSV color space for a pixel in a specific section
 // target color passed as argument is of the 0xRRGGBBWW format
-void hueFadeInit(uint8_t pixel, uint8_t section, uint32_t targetRGB, uint32_t fadeTime) {
+void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fadeTime) {
   
   // transition from RGB to HSV color space for actual and target color
-  uint32_t actualHSV = rgbw2hsv(neopxlObjArr[section].getPixelColor(pixel));
+  uint32_t actualHSV = rgbw2hsv(stripsArrayOfPxl[section][pixel].rgbwColor);
   uint32_t targetHSV = rgbw2hsv(targetRGB);
+
+  //Serial.println(wrgb2rgbw(neopxlObjArr[section].getPixelColor(pixel)));
+  //Serial.println(actualHSV);
 
   // extract hue, sat & val from actual and target colors
   uint16_t actualHue = uint16_t((actualHSV & 0xFFFF0000) >> 16);
   uint8_t  actualSat = uint8_t ((actualHSV & 0x0000FF00) >>  8);
   uint8_t  actualVal = uint8_t  (actualHSV & 0x000000FF)       ;
 
+  /*
+  Serial.println(actualHue);
+  Serial.println(actualSat);
+  Serial.println(actualVal);
+
+  Serial.println(targetHSV);
+  */
+
   uint16_t targetHue = uint16_t((targetHSV & 0xFFFF0000) >> 16);
   uint8_t  targetSat = uint8_t ((targetHSV & 0x0000FF00) >>  8);
   uint8_t  targetVal = uint8_t  (targetHSV & 0x000000FF)       ;
+
+  /*
+  Serial.println(targetHue);
+  Serial.println(targetSat);
+  Serial.println(targetVal);
+
+  delay(2000);
+  */
 
   // Since hue is representative of a circle's angle, we want to find the way of rotation
   // with the shorter length to minimize the variety of colors in the fade
@@ -244,20 +267,148 @@ void hueFadeInit(uint8_t pixel, uint8_t section, uint32_t targetRGB, uint32_t fa
   int16_t satDelta = targetSat - actualSat;
   int16_t valDelta = targetVal - actualVal;
 
-  // steps are calculated and are expressed in ms/bit
-  uint32_t hueStep = fadeTime / hueStep;
-  uint32_t satStep = fadeTime / satDelta;
-  uint32_t valStep = fadeTime / valDelta;
+  // steps are calculated and expressed in ms/bit, except for hue, where the unit is ms/43bits
+  // since deltas may be negative, the values are signed 32-bit
+  int32_t hueStep;
+  hueDelta ? hueStep = ((float)fadeTime / hueDelta) * 43 : hueStep = 0; 
+  int32_t satStep;
+  satDelta ? satStep = (float)fadeTime / satDelta : satStep = 0;
+  int32_t valStep;
+  valDelta ? valStep = (float)fadeTime / valDelta : valStep = 0;
 
+  /*
+  Serial.println(hueStep);
+  Serial.println(fadeTime);
+  Serial.println(hueDelta);
+  */
+
+  /*
+  Serial.println(satStep);
+  Serial.println(fadeTime);
+  Serial.println(satDelta);
+  */
+
+  /*
+  Serial.println(valStep);
+  Serial.println(fadeTime);
+  Serial.println(valDelta);
+  */
+
+  // assigning step time to pixel attributes
+  stripsArrayOfPxl[section][pixel].actionOneTime   = hueStep;
+  stripsArrayOfPxl[section][pixel].actionTwoTime   = satStep;
+  stripsArrayOfPxl[section][pixel].actionThreeTime = valStep;
+
+  // assigning start time of each to pixel attributes
+  stripsArrayOfPxl[section][pixel].actionOneStart   = millis();
+  stripsArrayOfPxl[section][pixel].actionTwoStart   = millis();
+  stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
+
+  // changing state of pixel and updating taretColor attribute
+  stripsArrayOfPxl[section][pixel].pxlState = HSV_FADE;
+  stripsArrayOfPxl[section][pixel].targetColor = targetRGB;
 }
 
-void hueFade(pixelInfo pixel) {
+// function called in the pixel iterator to update the hsv values
+void hsvFade(pixelInfo pixel) {
 
+  // extracting actual pixel color and assigning to the next HSV to output as starting point
+  uint32_t actualHSV = rgbw2hsv(stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor);
+  uint16_t nextHue = uint16_t((actualHSV & 0xFFFF0000) >> 16);
+  uint8_t  nextSat = uint8_t ((actualHSV & 0x0000FF00) >>  8);
+  uint8_t  nextVal = uint8_t  (actualHSV & 0x000000FF)       ;
+
+  if(millis() - pixel.actionOneStart >= absVar(pixel.actionOneTime) && pixel.actionOneTime != 0) {
+    uint16_t targetHue = uint16_t((rgbw2hsv(pixel.targetColor) & 0xFFFF0000) >> 16);
+    if(pixel.actionOneTime & 0x80000000) {
+      nextHue -= 43;                                                              // the steps are negative, we need to decrement
+      if(nextHue <= targetHue) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionOneTime = 0;           // target is reached, no need to come back in statement again
+        nextHue = targetHue;
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionOneStart = millis();
+      }
+    }
+    else {
+      nextHue += 43;                                                              // steps are positive, we increment
+      if(nextHue >= targetHue) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionOneTime = 0;           // target is reached, no need to come back in statement again
+        nextHue = targetHue;
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionOneStart = millis();
+      }
+    }
+  }
+
+  if(millis() - pixel.actionTwoStart >= absVar(pixel.actionTwoTime) && pixel.actionTwoTime != 0) {
+    uint8_t targetSat = uint8_t((rgbw2hsv(pixel.targetColor) & 0x0000FF00) >> 8);
+    if(pixel.actionTwoTime & 0x80000000) {
+      nextSat -= 1;
+      if(nextSat <= targetSat) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionTwoTime = 0;
+        nextSat = targetSat;
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionTwoStart = millis();
+      }
+    }
+    else {
+      nextSat += 1;
+      if(nextSat >= targetSat) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionTwoTime = 0;
+        nextSat = targetSat;
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionTwoStart = millis();
+      }
+    }
+  }
+
+  if(millis() - pixel.actionThreeStart >= absVar(pixel.actionThreeTime) && pixel.actionThreeTime != 0) {
+    uint8_t targetVal = uint8_t(rgbw2hsv(pixel.targetColor) & 0x000000FF);
+    if(pixel.actionThreeTime & 0x80000000) {
+      nextVal -= 1;
+      if(nextVal <= targetVal) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeTime = 0;
+        nextVal = targetVal;
+        Serial.println(millis());
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeStart = millis();
+      }
+    }
+    else {
+      nextVal += 1;
+      if(nextVal >= targetVal) {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeTime = 0;
+        nextVal = targetVal;
+      }
+      else {
+        stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeStart = millis();
+      }
+    }
+  }
+  // Outputting color to strip
+  /*
+  Serial.println(nextHue);
+  Serial.println(nextSat);
+  Serial.println(nextVal);
+  */
+  //Serial.println(stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor);
+  //Serial.println(wrgb2rgbw(neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal)));
+
+  //delay(500);
+  
+  stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor = wrgb2rgbw(neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal));
+  neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal));
+  neopxlObjArr[pixel.pxlSct].show();
 }
 
 
 
-//******   LED SCENES SECTION   ******//
+//******   LED EFFECTS SECTION   ******//
 
 
 /*
