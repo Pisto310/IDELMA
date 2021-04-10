@@ -71,8 +71,10 @@ typedef struct pixelInfo_s {
   uint32_t  actionOneStart;       // start time for action one
   uint32_t  actionTwoStart;       // start time for action two
   uint32_t  actionThreeStart;     // start time for action three
-  uint32_t  rgbwColor;            // actual rgbw color of the pixel. tried using getPixelColor(), but not precise at all
-  uint32_t  targetColor;          // registered target RGBW color for HSV_FADE or LERP_FADE action
+  uint32_t  rgbwColor;            // actual rgbw color of the pixel. getPixelColor() isn't precise when brightness is under 255
+  uint32_t  hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
+  uint32_t  rgbwTarget;           // registered target RGBW color for LERP_FADE action
+  uint32_t  hsvTarget;            // registered target HSV color for HSV_FADE action
 }pixelInfo;
 
 enum activeLedAction {

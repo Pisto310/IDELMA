@@ -29,13 +29,20 @@ uint8_t val;
 
 bool hsvFadeTest = 1;
 uint32_t orangeTarget  = 0xFFA60000;
+
 uint32_t yellowTarget  = 0xFFFF0000;
 uint32_t brightYellow  = 0xFFFF8000;
+
 uint32_t blueTarget    = 0x0000FF00;
+
 uint32_t cyanTarget    = 0x00FFFF00;
-uint32_t brightCyan    = 0x80FFFF00;
+uint32_t brightCyan    = 0xDDFFFF00;
 uint32_t lowCyan       = 0x4B7D7D00;
-uint32_t randomTarget  = 0x9fc9a600;
+
+uint32_t brightRed     = 0xFF808000;
+uint32_t lowBrightRed  = 0x80252500;
+
+uint32_t randomTarget  = 0x38d6aa00;
 
 //************    TEST VAR DECLARATIOIN     **************
 
@@ -103,21 +110,43 @@ void loop() {
 
   if(hueTest) {
     
-    hsvTest = rgbw2hsv(0x6f067b00);
-    Serial.println(hsvTest);
+    hsvTest = rgbw2hsv(0xff010000);
+    //Serial.println(hsvTest);
     
     hue = uint16_t((hsvTest & 0xFFFF0000) >> 16);
     sat = uint8_t ((hsvTest & 0x0000FF00) >> 8);
     val = uint8_t  (hsvTest & 0x000000FF);
 
-    Serial.println(uint32_t(neopxlObjArr[0].ColorHSV(hue, sat, val)));
+    Serial.println(wrgb2rgbw(neopxlObjArr[0].ColorHSV(43, 255, 255)));
+    Serial.println(rgbw2hsv(wrgb2rgbw(neopxlObjArr[0].ColorHSV(43, 255, 255))));
     hueTest = !hueTest;
   }
 
   if(hsvFadeTest) {
     
-    hsvFadeInit(1, 0, lowCyan, 30000);
+    hsvFadeInit(1, 0, randomTarget, 30000);
     hsvFadeTest = !hsvFadeTest;
+
+    /*
+    uint8_t r = 0;
+    uint8_t g = 0;
+    uint8_t b = 0;
+    uint8_t *ptr_r = &r;
+    uint8_t *ptr_g = &g;
+    uint8_t *ptr_b = &b;
+
+    fast_hsv2rgb_32bit(4, 254, 255, ptr_r, ptr_g, ptr_b);
+    
+    Serial.print(r);
+    Serial.print("\t");
+    Serial.print(g);
+    Serial.print("\t");
+    Serial.print(b);
+    Serial.print("\t");
+    
+    Serial.print(rgbw2hsv(0xff040100));      
+    */
+    //Serial.println(rgbw2hsv(0xFF050100));
   }
 
   pxlIterator(2);

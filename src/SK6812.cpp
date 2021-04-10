@@ -34,10 +34,11 @@ uint32_t sunColor = rgbw2wrgb(0xFFFF1400);
 void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctTracker, uint8_t maxBrightness, uint32_t startColor) {
   // loop to fill each pixel info in the array of strips
   for(uint8_t index = 0; index < neopxlObj.numPixels(); index++) {
-    stripsArrayOfPxl[*ptrToSctTracker][index].pxlSct = *ptrToSctTracker;
-    stripsArrayOfPxl[*ptrToSctTracker][index].pxlNbr = index;
-    stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = IDLE;
+    stripsArrayOfPxl[*ptrToSctTracker][index].pxlSct    = *ptrToSctTracker;
+    stripsArrayOfPxl[*ptrToSctTracker][index].pxlNbr    = index;
+    stripsArrayOfPxl[*ptrToSctTracker][index].pxlState  = IDLE;
     stripsArrayOfPxl[*ptrToSctTracker][index].rgbwColor = startColor;
+    stripsArrayOfPxl[*ptrToSctTracker][index].hsvColor  = rgbw2hsv(startColor);
   }
   // done here since it needs to be done for each instanciated neopxlObj
   neopxlObj.begin();
@@ -61,7 +62,7 @@ void pxlIterator(uint8_t sctCount) {
     for(uint8_t j = 0; j < neopxlObjArr[i].numPixels(); j++) {
       switch (stripsArrayOfPxl[i][j].pxlState) {
       case HSV_FADE:
-        if(stripsArrayOfPxl[i][j].rgbwColor != stripsArrayOfPxl[i][j].targetColor) {
+        if(stripsArrayOfPxl[i][j].hsvColor != stripsArrayOfPxl[i][j].hsvTarget) {
           hsvFade(stripsArrayOfPxl[i][j]);
         }
         else {
@@ -101,12 +102,12 @@ uint32_t rgbw2hsv(uint32_t color) {
   uint8_t  val = 0;
 
   // extracting each color from the packed 32-bits value and converting to 16-bit val
-  uint16_t red = uint16_t((color & 0xFF000000) >> 16) | uint16_t((color & 0xFF000000) >> 24);
-  uint16_t grn = uint16_t((color & 0x00FF0000) >>  8) | uint16_t((color & 0x00FF0000) >> 16);
-  uint16_t blu = uint16_t (color & 0x0000FF00)        | uint16_t((color & 0x0000FF00) >>  8);
+  uint16_t red = (uint16_t)((color & 0xFF000000) >> 16) | (uint16_t)((color & 0xFF000000) >> 24);
+  uint16_t grn = (uint16_t)((color & 0x00FF0000) >>  8) | (uint16_t)((color & 0x00FF0000) >> 16);
+  uint16_t blu = (uint16_t) (color & 0x0000FF00)        | (uint16_t)((color & 0x0000FF00) >>  8);
 
-  uint8_t maxColorVal = max(uint8_t(red & 0x00FF), max(uint8_t(grn & 0x00FF), uint8_t(blu & 0x00FF)));
-  uint8_t minColorVal = min(uint8_t(red & 0x00FF), min(uint8_t(grn & 0x00FF), uint8_t(blu & 0x00FF)));
+  uint8_t maxColorVal = max((uint8_t)(red & 0x00FF), max((uint8_t)(grn & 0x00FF), (uint8_t)(blu & 0x00FF)));
+  uint8_t minColorVal = min((uint8_t)(red & 0x00FF), min((uint8_t)(grn & 0x00FF), (uint8_t)(blu & 0x00FF)));
 
   uint8_t delta = maxColorVal - minColorVal;
 
@@ -114,33 +115,33 @@ uint32_t rgbw2hsv(uint32_t color) {
   // normally, the first term of the equation is 60°, 
   // but in our case, the whole 360° is 65 535, so 60° is a sixth of that (10 922)
   if(red >= grn && grn >= blu) {
-    hue = uint16_t((0xFFFF / 6) * ((float(grn) - float(blu)) / (float(red) - float(blu))));
+    hue = (uint16_t)(10922 * (((float)grn - (float)blu) / ((float)red - (float)blu)));
   }
   else if(grn > red && red >= blu) {
-    hue = uint16_t((0xFFFF / 6) * (2 - (float(red) - float(blu)) / (float(grn) - float(blu))));
+    hue = (uint16_t)(10922 * (2 - ((float)red - (float)blu) / ((float)grn - (float)blu)));
   }
   else if(grn >= blu && blu > red) {
-    hue = uint16_t((0xFFFF / 6) * (2 + (float(blu) - float(red)) / (float(grn) - float(red))));
+    hue = (uint16_t)(10922 * (2 + ((float)blu - (float)red) / ((float)grn - (float)red)));
   }
   else if(blu > grn && grn > red) {
-    hue = uint16_t((0xFFFF / 6) * (4 - (float(grn) - float(red)) / (float(blu) - float(red))));
+    hue = (uint16_t)(10922 * (4 - ((float)grn - (float)red) / ((float)blu - (float)red)));
   }
   else if(blu > red && red >= grn) {
-    hue = uint16_t((0xFFFF / 6) * (4 + (float(red) - float(grn)) / (float(blu) - float(grn))));
+    hue = (uint16_t)(10922 * (4 + ((float)red - (float)grn) / ((float)blu - (float)grn)));
   }
   else if(red >= blu && blu > grn) {
-    hue = uint16_t((0xFFFF / 6) * (6 - (float(blu) - float(grn)) / (float(red) - float(grn))));
+    hue = (uint16_t)(10922 * (6 - ((float)blu - (float)grn) / ((float)red - (float)grn)));
   }
 
   // saturation calculation
   if(maxColorVal != 0) {
-    sat = uint8_t((float(delta) / float(maxColorVal)) * 255);
+    sat = (uint8_t)((float)delta / (float)maxColorVal * 255);
   }
 
   // val calculation
   val = maxColorVal;
 
-  return((uint32_t(hue) << 16) | (uint32_t(sat) << 8) | (uint32_t(val)));
+  return(((uint32_t)hue << 16) | ((uint32_t)sat << 8) | ((uint32_t)val));
 }
 
 //******   BASIC FUNCS SECTION   ******//
@@ -210,9 +211,9 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fa
   //Serial.println(actualHSV);
 
   // extract hue, sat & val from actual and target colors
-  uint16_t actualHue = uint16_t((actualHSV & 0xFFFF0000) >> 16);
-  uint8_t  actualSat = uint8_t ((actualHSV & 0x0000FF00) >>  8);
-  uint8_t  actualVal = uint8_t  (actualHSV & 0x000000FF)       ;
+  uint16_t actualHue = (uint16_t)((actualHSV & 0xFFFF0000) >> 16);
+  uint8_t  actualSat = (uint8_t) ((actualHSV & 0x0000FF00) >>  8);
+  uint8_t  actualVal = (uint8_t)  (actualHSV & 0x000000FF)       ;
 
   /*
   Serial.println(actualHue);
@@ -222,9 +223,9 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fa
   Serial.println(targetHSV);
   */
 
-  uint16_t targetHue = uint16_t((targetHSV & 0xFFFF0000) >> 16);
-  uint8_t  targetSat = uint8_t ((targetHSV & 0x0000FF00) >>  8);
-  uint8_t  targetVal = uint8_t  (targetHSV & 0x000000FF)       ;
+  uint16_t targetHue = (uint16_t)((targetHSV & 0xFFFF0000) >> 16);
+  uint8_t  targetSat = (uint8_t) ((targetHSV & 0x0000FF00) >>  8);
+  uint8_t  targetVal = (uint8_t)  (targetHSV & 0x000000FF)       ;
 
   /*
   Serial.println(targetHue);
@@ -264,8 +265,8 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fa
   }
 
   // calculations for saturation and value deltas
-  int16_t satDelta = targetSat - actualSat;
-  int16_t valDelta = targetVal - actualVal;
+  int16_t satDelta = (int16_t)targetSat - (int16_t)actualSat;
+  int16_t valDelta = (int16_t)targetVal - (int16_t)actualVal;
 
   // steps are calculated and expressed in ms/bit, except for hue, where the unit is ms/43bits
   // since deltas may be negative, the values are signed 32-bit
@@ -304,22 +305,29 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fa
   stripsArrayOfPxl[section][pixel].actionTwoStart   = millis();
   stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
 
-  // changing state of pixel and updating taretColor attribute
+  // changing state of pixel and updating targetColor attribute
   stripsArrayOfPxl[section][pixel].pxlState = HSV_FADE;
-  stripsArrayOfPxl[section][pixel].targetColor = targetRGB;
+  stripsArrayOfPxl[section][pixel].hsvTarget = targetHSV;
 }
 
 // function called in the pixel iterator to update the hsv values
 void hsvFade(pixelInfo pixel) {
 
   // extracting actual pixel color and assigning to the next HSV to output as starting point
-  uint32_t actualHSV = rgbw2hsv(stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor);
-  uint16_t nextHue = uint16_t((actualHSV & 0xFFFF0000) >> 16);
-  uint8_t  nextSat = uint8_t ((actualHSV & 0x0000FF00) >>  8);
-  uint8_t  nextVal = uint8_t  (actualHSV & 0x000000FF)       ;
+  uint32_t actualHSV = (stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].hsvColor);
+  uint16_t nextHue   = (int16_t)((actualHSV & 0xFFFF0000) >> 16);
+  uint8_t  nextSat   = (int8_t) ((actualHSV & 0x0000FF00) >>  8);
+  uint8_t  nextVal   = (int8_t)  (actualHSV & 0x000000FF)       ;
+  
+  //Serial.println(pixel.rgbwColor);
+  /*
+  Serial.println(nextHue);
+  Serial.println(nextSat);
+  Serial.println(nextVal);(int8_t)
+  */
 
   if(millis() - pixel.actionOneStart >= absVar(pixel.actionOneTime) && pixel.actionOneTime != 0) {
-    uint16_t targetHue = uint16_t((rgbw2hsv(pixel.targetColor) & 0xFFFF0000) >> 16);
+    uint16_t targetHue = (int16_t)((pixel.hsvTarget & 0xFFFF0000) >> 16);
     if(pixel.actionOneTime & 0x80000000) {
       nextHue -= 43;                                                              // the steps are negative, we need to decrement
       if(nextHue <= targetHue) {
@@ -343,7 +351,7 @@ void hsvFade(pixelInfo pixel) {
   }
 
   if(millis() - pixel.actionTwoStart >= absVar(pixel.actionTwoTime) && pixel.actionTwoTime != 0) {
-    uint8_t targetSat = uint8_t((rgbw2hsv(pixel.targetColor) & 0x0000FF00) >> 8);
+    uint8_t targetSat = (int8_t)((pixel.hsvTarget & 0x0000FF00) >> 8);
     if(pixel.actionTwoTime & 0x80000000) {
       nextSat -= 1;
       if(nextSat <= targetSat) {
@@ -367,13 +375,12 @@ void hsvFade(pixelInfo pixel) {
   }
 
   if(millis() - pixel.actionThreeStart >= absVar(pixel.actionThreeTime) && pixel.actionThreeTime != 0) {
-    uint8_t targetVal = uint8_t(rgbw2hsv(pixel.targetColor) & 0x000000FF);
+    uint8_t targetVal = (int8_t)(pixel.hsvTarget & 0x000000FF);
     if(pixel.actionThreeTime & 0x80000000) {
       nextVal -= 1;
       if(nextVal <= targetVal) {
         stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeTime = 0;
         nextVal = targetVal;
-        Serial.println(millis());
       }
       else {
         stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].actionThreeStart = millis();
@@ -390,17 +397,37 @@ void hsvFade(pixelInfo pixel) {
       }
     }
   }
-  // Outputting color to strip
+  // outputting color to strip
+
   /*
-  Serial.println(nextHue);
+  Serial.print((actualHSV & 0xFFFF0000) >> 16);
+  Serial.print("\t");
+  Serial.print(nextHue);
+  Serial.print("\t");
+  Serial.print((nextHue * 1530L + 32768) / 65536);
+  Serial.print("\t");
+  Serial.print((actualHSV & 0x0000FF00) >>  8);
+  Serial.print("\t");
   Serial.println(nextSat);
-  Serial.println(nextVal);
   */
+  
+  //Serial.println(nextVal);
+  
   //Serial.println(stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor);
   //Serial.println(wrgb2rgbw(neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal)));
 
-  //delay(500);
+  //delay(2000);
+
+  /*
+  Serial.print(pixel.targetColor >> 24);
+  Serial.print("\t");
+  Serial.print((pixel.targetColor & 0x00FF0000) >> 16);
+  Serial.print("\t"); 
+  Serial.println((pixel.targetColor & 0x0000FF00) >> 8);
+  Serial.println(rgbw2hsv(pixel.rgbwColor));
+  */ 
   
+  stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].hsvColor = (uint32_t)nextHue << 16 | (uint32_t)nextSat << 8 | (uint32_t)nextVal;
   stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor = wrgb2rgbw(neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal));
   neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, neopxlObjArr[pixel.pxlSct].ColorHSV(nextHue, nextSat, nextVal));
   neopxlObjArr[pixel.pxlSct].show();
