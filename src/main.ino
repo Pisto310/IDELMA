@@ -17,8 +17,6 @@ char stop[5] = "stop";
 
 char btBuffer[64];
 
-bool btFlag = 1;
-
 bool sparkleTest = 0;
 
 bool hueTest = 0;
@@ -27,7 +25,7 @@ uint16_t hue;
 uint8_t sat;
 uint8_t val;
 
-bool hsvFadeTest = 1;
+bool hsvFadeTest = 0;
 uint32_t orangeTarget  = 0xFFA60000;
 
 uint32_t yellowTarget  = 0xFFFF0000;
@@ -44,6 +42,8 @@ uint32_t lowBrightRed  = 0x80252500;
 
 uint32_t randomTarget  = 0x38d6aa00;
 
+bool pxlColorOutTest = 0;
+
 //************    TEST VAR DECLARATIOIN     **************
 
 
@@ -55,7 +55,7 @@ uint16_t heartBeat = 1000;                  // in milliseconds
 
 uint8_t brightnessLED = 50;
 
-uint8_t sctCntTracker = 0;                  // var that keeps track of the index in the strips and nexpxlObj arrays
+uint8_t sctCntTracker = 0;                  // var that keeps track of the index in the strips and neopxlObj arrays
 uint8_t *ptrSctCntTracker = &sctCntTracker;
 
 void setup() {
@@ -87,8 +87,9 @@ void setup() {
   //*************   STRIP AND LEDS SET-UP   *************//
   
   neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctTwo, neopxlObjArr, ptrSctCntTracker, brightnessLED, 0xFF000000);
-  neopxlObjSetUp(sctSix, neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
   --sctCntTracker;
@@ -98,15 +99,15 @@ void setup() {
 
 void loop() {
   
-  if(btFlag) {
-    mcuHeartBeat(heartBeat);
-  }
+  mcuHeartBeat(heartBeat);
 
+  /*
   if(sparkleTest) {
     sparkleInit(0);
     sparkleInit(1);
     sparkleTest = !sparkleTest;
   }
+  */
 
   if(hueTest) {
     
@@ -124,32 +125,25 @@ void loop() {
 
   if(hsvFadeTest) {
     
-    hsvFadeInit(1, 0, randomTarget, 30000);
+    hsvFadeInit(2, 0, randomTarget, 30000);
     hsvFadeTest = !hsvFadeTest;
-
-    /*
-    uint8_t r = 0;
-    uint8_t g = 0;
-    uint8_t b = 0;
-    uint8_t *ptr_r = &r;
-    uint8_t *ptr_g = &g;
-    uint8_t *ptr_b = &b;
-
-    fast_hsv2rgb_32bit(4, 254, 255, ptr_r, ptr_g, ptr_b);
-    
-    Serial.print(r);
-    Serial.print("\t");
-    Serial.print(g);
-    Serial.print("\t");
-    Serial.print(b);
-    Serial.print("\t");
-    
-    Serial.print(rgbw2hsv(0xff040100));      
-    */
-    //Serial.println(rgbw2hsv(0xFF050100));
   }
 
-  pxlIterator(2);
+  if(pxlColorOutTest) {
+
+    pxlColorOut(0, 3, 0xAAA8FFFF, 1);
+    pxlColorOutTest = !pxlColorOutTest;
+    Serial.println(stripsArrayOfPxl[0][3].rgbwColor);
+    Serial.println(stripsArrayOfPxl[0][3].hsvColor);
+
+    delay(3000);
+
+    pxlOFF(0, 3);
+    Serial.println(stripsArrayOfPxl[0][3].rgbwColor);
+    Serial.println(stripsArrayOfPxl[0][3].hsvColor);
+  }
+
+  pxlIterator(4);
 
   /*
   serialReadToArray(Serial1, btBuffer, 64);

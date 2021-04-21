@@ -13,16 +13,17 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #define LED_COUNT_MAX       6
 
 // macros to map the zone to its digital output pin
-#define PIN_SCT_1           2
-#define PIN_SCT_2           3
-#define PIN_SCT_3           4
-#define PIN_SCT_4           5
-#define PIN_SCT_5           6
-#define PIN_SCT_6           7
-#define PIN_SCT_7           8
-#define PIN_SCT_8           9
+#define PIN_SCT_0           2
+#define PIN_SCT_1           3
+#define PIN_SCT_2           4
+#define PIN_SCT_3           5
+#define PIN_SCT_4           6
+#define PIN_SCT_5           7
+#define PIN_SCT_6           8
+#define PIN_SCT_7           9
 
 // macros for nb of LEDs in each zone, variable from prj to prj
+#define LED_COUNT_SCT_0     6
 #define LED_COUNT_SCT_1     6
 #define LED_COUNT_SCT_2     6
 #define LED_COUNT_SCT_3     6
@@ -30,7 +31,6 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #define LED_COUNT_SCT_5     6
 #define LED_COUNT_SCT_6     6
 #define LED_COUNT_SCT_7     6
-#define LED_COUNT_SCT_8     6
 
 // LED RGB colors lookup table
 static const PROGMEM uint32_t colorsLookup[24][6] = {
@@ -65,7 +65,7 @@ typedef struct pixelInfo_s {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
-  int32_t   actionOneTime;        // time between each step for hue (hueFade) or red (lerpFade), or onTime for sparkle effect
+  int32_t   actionOneTime;        // time between each step for hue (hueFade) or red (lerpFade). Also, default param. for other timed actions
   int32_t   actionTwoTime;        // time between each step for sat (hueFade) or grn (lerpFade)
   int32_t   actionThreeTime;      // time between each step for val (hueFade) or blu (lerpFade)
   uint32_t  actionOneStart;       // start time for action one
@@ -81,12 +81,14 @@ enum activeLedAction {
   IDLE,                         // LED is ready for action
   HSV_FADE,                     // LED is in the process of fading in HSV color space
   LERP_FADE,                    // LED is in the process of fading in RGB color space
+  BLINK,                        // LED is blinking
   SPARKLE                       // LED is in the process of sparkling
 };
 
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 extern Adafruit_NeoPixel sctZero;
+extern Adafruit_NeoPixel sctOne;
 extern Adafruit_NeoPixel sctTwo;
 extern Adafruit_NeoPixel sctSix;
 
@@ -99,12 +101,23 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
+
+void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0, bool targetUpdt = 0);
+void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0);
+void pxlOFF(uint8_t section, uint8_t pixel);
 void pxlIterator(uint8_t sctCount);
+
+void stripColourFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
+void stripOFF(uint8_t section);
+
 uint32_t rgbw2wrgb(uint32_t rgbwColor);
 uint32_t wrgb2rgbw(uint32_t wrgbColor);
-uint32_t rgbw2hsv(uint32_t color);
+uint32_t rgbw2hsv(uint32_t rgbwColor);
 
+void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fadeTime);
+void hsvFade(uint8_t section, uint8_t pixel);
+
+/*
 void sparkleInit(uint8_t section);
 void sparkleSct(pixelInfo_s pixel);
-void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fadeTime);
-void hsvFade(pixelInfo pixel);
+*/
