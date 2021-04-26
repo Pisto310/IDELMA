@@ -21,11 +21,13 @@ bool sparkleTest = 0;
 
 bool hueTest = 0;
 uint32_t hsvTest;
+
 uint16_t hue;
 uint8_t sat;
 uint8_t val;
 
 bool hsvFadeTest = 0;
+bool rgbFadeTest = 1;
 uint32_t orangeTarget  = 0xFFA60000;
 
 uint32_t yellowTarget  = 0xFFFF0000;
@@ -88,7 +90,7 @@ void setup() {
   
   neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
   neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED, 0xc4247800);
   neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
@@ -101,30 +103,35 @@ void loop() {
   
   mcuHeartBeat(heartBeat);
 
-  /*
   if(sparkleTest) {
     sparkleInit(0);
     sparkleInit(1);
     sparkleTest = !sparkleTest;
   }
-  */
 
   if(hueTest) {
+
+    uint32_t testColor = 0x9f50d300;
     
-    hsvTest = rgbw2hsv(0xff010000);
-    //Serial.println(hsvTest);
+    hsvTest = rgbw2hsv(testColor);
     
     hue = uint16_t((hsvTest & 0xFFFF0000) >> 16);
     sat = uint8_t ((hsvTest & 0x0000FF00) >> 8);
     val = uint8_t  (hsvTest & 0x000000FF);
 
-    Serial.println(wrgb2rgbw(neopxlObjArr[0].ColorHSV(43, 255, 255)));
-    Serial.println(rgbw2hsv(wrgb2rgbw(neopxlObjArr[0].ColorHSV(43, 255, 255))));
+    Serial.print(hue);
+    Serial.print('\t');
+    Serial.print(sat);
+    Serial.print('\t');
+    Serial.println(val);
+
+    Serial.println(wrgb2rgbw(neopxlObjArr[0].ColorHSV(hue, sat, val)));
+
     hueTest = !hueTest;
   }
 
   if(hsvFadeTest) {
-    
+
     hsvFadeInit(2, 0, randomTarget, 30000);
     hsvFadeTest = !hsvFadeTest;
   }
@@ -141,6 +148,12 @@ void loop() {
     pxlOFF(0, 3);
     Serial.println(stripsArrayOfPxl[0][3].rgbwColor);
     Serial.println(stripsArrayOfPxl[0][3].hsvColor);
+  }
+
+  if(rgbFadeTest) {
+
+    rgbFadeInit(2, 0, randomTarget, 30000);
+    rgbFadeTest = !rgbFadeTest;
   }
 
   pxlIterator(4);

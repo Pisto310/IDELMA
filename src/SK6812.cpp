@@ -130,25 +130,41 @@ void pxlOFF(uint8_t section, uint8_t pixel) {
 }
 
 void pxlIterator(uint8_t sctCount) {
-  for(uint8_t i = 0; i < sctCount; i++) {
-    for(uint8_t j = 0; j < neopxlObjArr[i].numPixels(); j++) {
-      switch (stripsArrayOfPxl[i][j].pxlState) {
+  for(uint8_t section = 0; section < sctCount; section++) {
+    for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+      switch (stripsArrayOfPxl[section][pixel].pxlState) {
       case HSV_FADE:
-        if(stripsArrayOfPxl[i][j].hsvColor != stripsArrayOfPxl[i][j].hsvTarget) {
-          hsvFade(i, j);
+        if(stripsArrayOfPxl[section][pixel].hsvColor != stripsArrayOfPxl[section][pixel].hsvTarget) {
+          hsvFade(section, pixel);
         }
         else {
-          stripsArrayOfPxl[i][j].pxlState = IDLE;
+          stripsArrayOfPxl[section][pixel].pxlState = IDLE;
           Serial.println("here");
         }
         break;
 
+      case RGB_FADE:
+        if(stripsArrayOfPxl[section][pixel].rgbwColor != stripsArrayOfPxl[section][pixel].rgbwTarget) {
+          rgbFade(section, pixel);
+        }
+        else {
+          stripsArrayOfPxl[section][pixel].pxlState = IDLE;
+          Serial.println("there");
+        }
+        break;
+
+      case BLINK_ONCE:
+        if(millis() - stripsArrayOfPxl[section][pixel].actionOneStart >= absVar(stripsArrayOfPxl[section][pixel].actionOneTime)) {
+        pxlOFF(section, pixel);
+        stripsArrayOfPxl[section][pixel].pxlState = IDLE;
+        }
+
       case SPARKLE:
-        //sparkleSct(stripsArrayOfPxl[i][j]);
+        sparkleSct(section, pixel);
         break;
       
       default:
-        stripsArrayOfPxl[i][j].pxlState = IDLE;       // check if statement is useful
+        stripsArrayOfPxl[section][pixel].pxlState = IDLE;       // check if statement is useful
         break;
       }
     }
@@ -228,55 +244,71 @@ uint32_t wrgb2rgbw(uint32_t wrgbColor) {
   return((wrgbColor << 8) | wrgbColor >> 24);
 }
 
+uint32_t rgbw2rgb(uint32_t rgbwColor) {
+  return(rgbwColor & 0xFFFFFF00);
+}
+
 // converts from RGB to HSV color space
 // takes a RRGGBBWW color as input, and return a 32 bit value containing the HSV info
 // return value is decomposed as follow : bits 0-7 -> VAL | bits 8-15 -> SAT | bits 16-31 -> HUE
 uint32_t rgbw2hsv(uint32_t rgbwColor) {
   
   // values to combine when func will use return statement
-  uint16_t hue = 0;
-  uint8_t  sat = 0;
-  uint8_t  val = 0;
+  uint32_t hue = 0;
+  uint32_t sat = 0;
+  uint32_t val = 0;
 
-  // extracting each color from the packed 32-bits value and converting to 16-bit val
-  uint16_t red = (uint16_t)((rgbwColor & 0xFF000000) >> 16) | (uint16_t)((rgbwColor & 0xFF000000) >> 24);
-  uint16_t grn = (uint16_t)((rgbwColor & 0x00FF0000) >>  8) | (uint16_t)((rgbwColor & 0x00FF0000) >> 16);
-  uint16_t blu = (uint16_t) (rgbwColor & 0x0000FF00)        | (uint16_t)((rgbwColor & 0x0000FF00) >>  8);
+  // extracting each color from the packed 32-bits value
+  uint8_t red = (uint8_t)((rgbwColor & 0xFF000000) >> 24);
+  uint8_t grn = (uint8_t)((rgbwColor & 0x00FF0000) >> 16);
+  uint8_t blu = (uint8_t)((rgbwColor & 0x0000FF00) >>  8);
 
-  uint8_t maxColorVal = max((uint8_t)(red & 0x00FF), max((uint8_t)(grn & 0x00FF), (uint8_t)(blu & 0x00FF)));
-  uint8_t minColorVal = min((uint8_t)(red & 0x00FF), min((uint8_t)(grn & 0x00FF), (uint8_t)(blu & 0x00FF)));
+  // casting as float for hue calculation further down
+  float redQ = (float)red;
+  float grnQ = (float)grn;
+  float bluQ = (float)blu;
 
-  uint8_t delta = maxColorVal - minColorVal;
+  // checking which color val is Max and which is Min
+  float maxColorVal = (uint8_t)(max(red, max(grn, blu)));
+  float minColorVal = (uint8_t)(min(red, min(grn, blu)));
 
-  // section to calculate the hue
-  // normally, the first term of the equation is 60°, 
-  // but in our case, the whole 360° is 65 535, so 60° is a sixth of that (10 922)
-  if(red >= grn && grn >= blu) {
-    hue = (uint16_t)(10922 * (((float)grn - (float)blu) / ((float)red - (float)blu)));
+  // val calculation
+  // in the case that the Value is zero, the other parameters are also at zero since the LED is OFF
+  if(!maxColorVal) {
+    return((hue << 16) | (sat << 8) | val);
   }
-  else if(grn > red && red >= blu) {
-    hue = (uint16_t)(10922 * (2 - ((float)red - (float)blu) / ((float)grn - (float)blu)));
-  }
-  else if(grn >= blu && blu > red) {
-    hue = (uint16_t)(10922 * (2 + ((float)blu - (float)red) / ((float)grn - (float)red)));
-  }
-  else if(blu > grn && grn > red) {
-    hue = (uint16_t)(10922 * (4 - ((float)grn - (float)red) / ((float)blu - (float)red)));
-  }
-  else if(blu > red && red >= grn) {
-    hue = (uint16_t)(10922 * (4 + ((float)red - (float)grn) / ((float)blu - (float)grn)));
-  }
-  else if(red >= blu && blu > grn) {
-    hue = (uint16_t)(10922 * (6 - ((float)blu - (float)grn) / ((float)red - (float)grn)));
+  else {
+    val = maxColorVal;
   }
 
   // saturation calculation
-  if(maxColorVal != 0) {
-    sat = (uint8_t)((float)delta / (float)maxColorVal * 255);
+  sat = (uint8_t)(((maxColorVal - minColorVal) / maxColorVal) * 255);
+  // in the case of saturation 0, hue is not inmportant cause color is set to WHT
+  if(!sat) {
+    return((hue << 16) | (sat << 8) | val);
   }
 
-  // val calculation
-  val = maxColorVal;
+  // hue calculation
+  // normally, the first term of the equation is 60°, 
+  // but in our case, the whole 360° is 65 535, so 60° is a sixth of that (10 922)
+  if(red >= grn && grn >= blu) {
+    hue = (uint16_t)(        10922 * ((grnQ - bluQ) / (redQ - bluQ)));
+  }
+  else if(grn > red && red >= blu) {
+    hue = (uint16_t)(21845 - 10922 * ((redQ - bluQ) / (grnQ - bluQ)));
+  }
+  else if(grn >= blu && blu > red) {
+    hue = (uint16_t)(21845 + 10922 * ((bluQ - redQ) / (grnQ - redQ)));
+  }
+  else if(blu > grn && grn > red) {
+    hue = (uint16_t)(43690 - 10922 * ((grnQ - redQ) / (bluQ - redQ)));
+  }
+  else if(blu > red && red >= grn) {
+    hue = (uint16_t)(43690 + 10922 * ((redQ - grnQ) / (bluQ - grnQ)));
+  }
+  else if(red >= blu && blu > grn) {
+    hue = (uint16_t)(65535 - 10922 * ((bluQ - grnQ) / (redQ - grnQ)));
+  }
 
   return(((uint32_t)hue << 16) | ((uint32_t)sat << 8) | ((uint32_t)val));
 }
@@ -296,16 +328,23 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 
 //******   LED EFFECTS SECTION   ******//
 
-/*
 // func that blinks a pixel a certain color only once
-void blink(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime) {
+void blinkOnce(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime, bool blinkState) {
+  
+  // updating pxl attributes
+  stripsArrayOfPxl[section][pixel].actionOneStart = millis();
+  stripsArrayOfPxl[section][pixel].actionOneTime = blinkTime;
+  if(blinkState) {
+    stripsArrayOfPxl[section][pixel].pxlState = BLINK_ONCE;
+  }
 
+  // update neopxlObj
+  pxlColorOut(section, pixel, color);
 }
-*/
 
 // Initialize a fade action using the HSV color space for a pixel in a specific section
 // target color passed as argument is of the 0xRRGGBBWW format
-void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fadeTime) {
+void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime) {
   
   // transition from RGB to HSV color space for actual and target color
   uint32_t actualHSV = rgbw2hsv(stripsArrayOfPxl[section][pixel].rgbwColor);
@@ -352,22 +391,23 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, uint32_t fa
   }
 
   // calculations for saturation and value deltas
-  int16_t satDelta = (int16_t)targetSat - (int16_t)actualSat;
-  int16_t valDelta = (int16_t)targetVal - (int16_t)actualVal;
+  int16_t satDelta = (int16_t)(targetSat - actualSat);
+  int16_t valDelta = (int16_t)(targetVal - actualVal);
 
   // steps are calculated and expressed in ms/bit, except for hue, where the unit is ms/43bits
   // since deltas may be negative, the values are signed 32-bit
-  int32_t hueStep;
-  hueDelta ? hueStep = ((float)fadeTime / hueDelta) * 43 : hueStep = 0; 
-  int32_t satStep;
-  satDelta ? satStep = (float)fadeTime / satDelta : satStep = 0;
-  int32_t valStep;
-  valDelta ? valStep = (float)fadeTime / valDelta : valStep = 0;
+  int32_t hueSteps;
+  int32_t satSteps;
+  int32_t valSteps;
+
+  hueDelta ? hueSteps = (fadeTime / hueDelta) * 43 : hueSteps = 0;
+  satDelta ? satSteps =  fadeTime / satDelta        : satSteps = 0;
+  valDelta ? valSteps =  fadeTime / valDelta        : valSteps = 0;
 
   // assigning step time to pixel attributes
-  stripsArrayOfPxl[section][pixel].actionOneTime   = hueStep;
-  stripsArrayOfPxl[section][pixel].actionTwoTime   = satStep;
-  stripsArrayOfPxl[section][pixel].actionThreeTime = valStep;
+  stripsArrayOfPxl[section][pixel].actionOneTime   = hueSteps;
+  stripsArrayOfPxl[section][pixel].actionTwoTime   = satSteps;
+  stripsArrayOfPxl[section][pixel].actionThreeTime = valSteps;
 
   // assigning start time of each to pixel attributes
   stripsArrayOfPxl[section][pixel].actionOneStart   = millis();
@@ -389,7 +429,7 @@ void hsvFade(uint8_t section, uint8_t pixel) {
   uint8_t  nextVal   = (int8_t)  (actualHSV & 0x000000FF)       ;
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionOneStart >= absVar(stripsArrayOfPxl[section][pixel].actionOneTime) && stripsArrayOfPxl[section][pixel].actionOneTime != 0) {
-    uint16_t targetHue = (int16_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0xFFFF0000) >> 16);
+    uint16_t targetHue = (uint16_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0xFFFF0000) >> 16);
     if(stripsArrayOfPxl[section][pixel].actionOneTime & 0x80000000) {
       nextHue -= 43;                                                              // the steps are negative, we need to decrement
       if(nextHue <= targetHue) {
@@ -413,7 +453,7 @@ void hsvFade(uint8_t section, uint8_t pixel) {
   }
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionTwoStart >= absVar(stripsArrayOfPxl[section][pixel].actionTwoTime) && stripsArrayOfPxl[section][pixel].actionTwoTime != 0) {
-    uint8_t targetSat = (int8_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0x0000FF00) >> 8);
+    uint8_t targetSat = (uint8_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0x0000FF00) >> 8);
     if(stripsArrayOfPxl[section][pixel].actionTwoTime & 0x80000000) {
       nextSat -= 1;
       if(nextSat <= targetSat) {
@@ -437,7 +477,7 @@ void hsvFade(uint8_t section, uint8_t pixel) {
   }
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionThreeStart >= absVar(stripsArrayOfPxl[section][pixel].actionThreeTime) && stripsArrayOfPxl[section][pixel].actionThreeTime != 0) {
-    uint8_t targetVal = (int8_t)(stripsArrayOfPxl[section][pixel].hsvTarget & 0x000000FF);
+    uint8_t targetVal = (uint8_t)(stripsArrayOfPxl[section][pixel].hsvTarget & 0x000000FF);
     if(stripsArrayOfPxl[section][pixel].actionThreeTime & 0x80000000) {
       nextVal -= 1;
       if(nextVal <= targetVal) {
@@ -459,13 +499,132 @@ void hsvFade(uint8_t section, uint8_t pixel) {
       }
     }
   }
-  // outputting color to strip and updatting actual color attr.
-  
-  pxlColorUpdt(section, pixel, (uint32_t)nextHue << 16 | (uint32_t)nextSat << 8 | (uint32_t)nextVal, 1);
-  neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].ColorHSV(nextHue, nextSat, nextVal));
-  neopxlObjArr[section].show();
+  // outputting color to strip
+  pxlColorOut(section, pixel, (uint32_t)nextHue << 16 | (uint32_t)nextSat << 8 | (uint32_t)nextVal, 1);
 }
 
+// fade from color to color in the RGB space using linear interpolation between actual and target value
+// it was decided this func would not treat the white bits (8-LSB) of the input target color since it isn't ncessary
+// for a white fade, use the whtFade func
+void rgbFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime) {
+
+  // extracting individual R, G & B values from the actual color attri. of the pixel
+  uint8_t actualRed = stripsArrayOfPxl[section][pixel].rgbwColor >> 24;
+  uint8_t actualGrn = stripsArrayOfPxl[section][pixel].rgbwColor >> 16;
+  uint8_t actualBlu = stripsArrayOfPxl[section][pixel].rgbwColor >>  8;
+
+  // extracting individual R, G & B values from the target color
+  uint8_t targetRed = targetRGB >> 24;
+  uint8_t targetGrn = targetRGB >> 16;
+  uint8_t targetBlu = targetRGB >>  8;
+
+  // calculating the deltas
+  int16_t redDelta = targetRed - actualRed;
+  int16_t grnDelta = targetGrn - actualGrn;
+  int16_t bluDelta = targetBlu - actualBlu;
+
+  // with incrementing by a bit, each step is then expressed as a number of ms/bit
+  int32_t redSteps;
+  int32_t grnSteps;
+  int32_t bluSteps;
+  redDelta ? redSteps = fadeTime / redDelta : redSteps = 0;
+  grnDelta ? grnSteps = fadeTime / grnDelta : grnSteps = 0;
+  bluDelta ? bluSteps = fadeTime / bluDelta : bluSteps = 0;
+
+  // updating timing attributes of the pixel, its state and target color
+  stripsArrayOfPxl[section][pixel].actionOneTime   = redSteps;
+  stripsArrayOfPxl[section][pixel].actionTwoTime   = grnSteps;
+  stripsArrayOfPxl[section][pixel].actionThreeTime = bluSteps;
+
+  stripsArrayOfPxl[section][pixel].actionOneStart   = millis();
+  stripsArrayOfPxl[section][pixel].actionTwoStart   = millis();
+  stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
+
+  pxlColorUpdt(section, pixel, rgbw2rgb(targetRGB), 0, 1);
+  stripsArrayOfPxl[section][pixel].pxlState = RGB_FADE;
+}
+
+void rgbFade(uint8_t section, uint8_t pixel) {
+  
+  // using each actual R, G & B value as starting point for the next value to output
+  uint8_t nextRed = stripsArrayOfPxl[section][pixel].rgbwColor >> 24;
+  uint8_t nextGrn = stripsArrayOfPxl[section][pixel].rgbwColor >> 16;
+  uint8_t nextBlu = stripsArrayOfPxl[section][pixel].rgbwColor >>  8;
+
+  if(millis() - stripsArrayOfPxl[section][pixel].actionOneStart >= absVar(stripsArrayOfPxl[section][pixel].actionOneTime) && stripsArrayOfPxl[section][pixel].actionOneTime != 0) {
+    uint8_t targetRed = stripsArrayOfPxl[section][pixel].rgbwTarget >> 24;
+    if(stripsArrayOfPxl[section][pixel].actionOneTime & 0x80000000) {
+      nextRed -= 1;                                                               // the steps are negative, we need to decrement
+      if(nextRed <= targetRed) {
+        stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
+        nextRed = targetRed;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionOneStart = millis();
+      }
+    }
+    else {
+      nextRed += 1;                                                               // steps are positive, we increment
+      if(nextRed >= targetRed) {
+        stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
+        nextRed = targetRed;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionOneStart = millis();
+      }
+    }
+  }
+
+  if(millis() - stripsArrayOfPxl[section][pixel].actionTwoStart >= absVar(stripsArrayOfPxl[section][pixel].actionTwoTime) && stripsArrayOfPxl[section][pixel].actionTwoTime != 0) {
+    uint8_t targetGrn = stripsArrayOfPxl[section][pixel].rgbwTarget >> 16;
+    if(stripsArrayOfPxl[section][pixel].actionTwoTime & 0x80000000) {
+      nextGrn -= 1;
+      if(nextGrn <= targetGrn) {
+        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
+        nextGrn = targetGrn;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
+      }
+    }
+    else {
+      nextGrn += 1;
+      if(nextGrn >= targetGrn) {
+        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
+        nextGrn = targetGrn;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
+      }
+    }
+  }
+
+  if(millis() - stripsArrayOfPxl[section][pixel].actionThreeStart >= absVar(stripsArrayOfPxl[section][pixel].actionThreeTime) && stripsArrayOfPxl[section][pixel].actionThreeTime != 0) {
+    uint8_t targetBlu = stripsArrayOfPxl[section][pixel].rgbwTarget >> 8;
+    if(stripsArrayOfPxl[section][pixel].actionThreeTime & 0x80000000) {
+      nextBlu -= 1;
+      if(nextBlu <= targetBlu) {
+        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
+        nextBlu = targetBlu;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
+      }
+    }
+    else {
+      nextBlu += 1;
+      if(nextBlu >= targetBlu) {
+        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
+        nextBlu = targetBlu;
+      }
+      else {
+        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
+      }
+    }
+  }
+  // outputting to strip
+  pxlColorOut(section, pixel, wrgb2rgbw(neopxlObjArr[section].Color(nextRed, nextGrn, nextBlu, 0)));
+}
 
 
 //******   LED EFFECTS SECTION   ******//
@@ -482,50 +641,37 @@ void hsvFade(uint8_t section, uint8_t pixel) {
 
 //********    LED SCENES SECTION    ********//
 
-/*
+
+
 // Initialize a strip/section to start sparkle. Called once in main
 void sparkleInit(uint8_t section) {
   // randomly chooses first pxl to turn ON/OFF
   uint8_t sparklePxl = random(neopxlObjArr[section].numPixels());
-
-  // updating pxl attributes
-  stripsArrayOfPxl[section][sparklePxl].actionOneStart = millis();
-  stripsArrayOfPxl[section][sparklePxl].actionOneTime = 50;
+  blinkOnce(section, sparklePxl, sunColor, 50, 0);
   stripsArrayOfPxl[section][sparklePxl].pxlState = SPARKLE;
-  stripsArrayOfPxl[section][sparklePxl].rgbwColor = sunColor;
-
-  // update neopxlObj
-  neopxlObjArr[section].setPixelColor(sparklePxl, sunColor);
-  neopxlObjArr[section].show();
 }
 
 // Create a sparkling effect for a whole section (strip)
-void sparkleSct(pixelInfo pixel) {
+void sparkleSct(uint8_t section, uint8_t pixel) {
 
-  if(millis() - pixel.actionOneStart >= absVar(pixel.actionOneTime)) {
-
-    // turn OFF pixel and actualize pxl attributes
-    neopxlObjArr[pixel.pxlSct].setPixelColor(pixel.pxlNbr, 0);
-    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].pxlState = IDLE;
-    stripsArrayOfPxl[pixel.pxlSct][pixel.pxlNbr].rgbwColor = 0;
+  if(millis() - stripsArrayOfPxl[section][pixel].actionOneStart >= absVar(stripsArrayOfPxl[section][pixel].actionOneTime)) {
+    pxlOFF(section, pixel);
+    stripsArrayOfPxl[section][pixel].pxlState = IDLE;
     
-    uint8_t nextSparklePxl = random(neopxlObjArr[pixel.pxlSct].numPixels());
+    uint8_t nextSparklePxl = random(neopxlObjArr[pixel].numPixels());
     
-    // if the rand generator gives the same result, do it until the result is different
-    while(nextSparklePxl == pixel.pxlNbr) {
-      nextSparklePxl = random(neopxlObjArr[pixel.pxlSct].numPixels());
+    // if the rand generator gives the same result, do it until it is different
+    while(nextSparklePxl == pixel) {
+      nextSparklePxl = random(neopxlObjArr[pixel].numPixels());
     }
 
     // turn ON next pixel and actualize attributes
-    neopxlObjArr[pixel.pxlSct].setPixelColor(nextSparklePxl, sunColor);
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].pxlState = SPARKLE;
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].rgbwColor = sunColor;
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneStart = millis();
-    stripsArrayOfPxl[pixel.pxlSct][nextSparklePxl].actionOneTime = 50;
-    neopxlObjArr[pixel.pxlSct].show();
+    blinkOnce(section, nextSparklePxl, sunColor, stripsArrayOfPxl[section][pixel].actionOneTime, 0);
+    stripsArrayOfPxl[section][nextSparklePxl].pxlState = SPARKLE;
   }
 }
-*/
+
+
 
 //********    LED SCENES SECTION    ********//
 
