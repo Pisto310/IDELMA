@@ -152,7 +152,10 @@ void loop() {
 
   if(rgbFadeTest) {
 
-    rgbFadeInit(2, 0, randomTarget, 30000);
+    rgbFadeInit(1, 5, randomTarget, 30000);
+    rgbFadeInit(0, 4, 0x8d943c00, 25000);
+    rgbFadeInit(2, 2, 0xd3f42f00, 35000);
+    rgbFadeInit(1, 0, 0x549a7b00, 40000);
     rgbFadeTest = !rgbFadeTest;
   }
 

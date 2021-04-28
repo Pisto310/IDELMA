@@ -47,7 +47,7 @@ void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[],
   neopxlObj.begin();
   neopxlObj.setBrightness(maxBrightness);
   if(startColor) {
-    stripColourFill(*ptrToSctTracker, startColor);
+    stripColorFill(*ptrToSctTracker, startColor);
   }
   else {
     stripOFF(*ptrToSctTracker);
@@ -57,7 +57,29 @@ void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[],
   ++*ptrToSctTracker;
 }
 
-
+// func that takes care of handling the next color value for fade actions (HSV or RGB)
+void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr) {
+  if(*actionTime & 0x80000000) {
+    *nextColor -= incrDecr;                             // the steps are negative, we need to decrement
+    if(*nextColor <= targetColor) {
+      *actionTime = 0;                                  // target is reached, no need to come back in statement again
+      *nextColor = targetColor;
+    }
+    else {
+      *actionStart = millis();
+    }
+  }
+  else {
+    *nextColor += incrDecr;                             // steps are positive, we increment
+    if(*nextColor >= targetColor) {
+      *actionTime = 0;                                  // target is reached, no need to come back in statement again
+      *nextColor = targetColor;
+    }
+    else {
+      *actionStart = millis();
+    }
+  }
+}
 
 
 
@@ -104,6 +126,7 @@ void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat
 
 // simple function to output a chosen color to a pixel
 // color can be of either HSV or RGB format
+// gamma32 correction is applied on the color outputted to the strip
 void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat) {
   if(hsvFormat) {
     
@@ -112,12 +135,12 @@ void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat)
     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
 
     pxlColorUpdt(section, pixel, color, hsvFormat);
-    neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].ColorHSV(hue, sat, val));
+    neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
     neopxlObjArr[section].show();
   }
   else {
     pxlColorUpdt(section, pixel, color);
-    neopxlObjArr[section].setPixelColor(pixel, rgbw2wrgb(color));
+    neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
     neopxlObjArr[section].show();
   }
 }
@@ -188,7 +211,8 @@ void pxlIterator(uint8_t sctCount) {
 
 
 // lights a whole strip with the color passed as input
-void stripColourFill(uint8_t section, uint32_t color, bool hsvFormat) {
+// gamma32 correction is applied on the color outputted to the strip
+void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
   if(hsvFormat) {
     
     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
@@ -198,14 +222,14 @@ void stripColourFill(uint8_t section, uint32_t color, bool hsvFormat) {
     for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
       pxlColorUpdt(section, pixel, color, hsvFormat);
     }
-    neopxlObjArr[section].fill(neopxlObjArr[section].ColorHSV(hue, sat, val));
+    neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
     neopxlObjArr[section].show();
   }
   else {
     for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
       pxlColorUpdt(section, pixel, color);
     }
-    neopxlObjArr[section].fill(rgbw2wrgb(color));
+    neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
     neopxlObjArr[section].show();
   }
 }
@@ -553,81 +577,25 @@ void rgbFade(uint8_t section, uint8_t pixel) {
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionOneStart >= absVar(stripsArrayOfPxl[section][pixel].actionOneTime) && stripsArrayOfPxl[section][pixel].actionOneTime != 0) {
     uint8_t targetRed = stripsArrayOfPxl[section][pixel].rgbwTarget >> 24;
-    if(stripsArrayOfPxl[section][pixel].actionOneTime & 0x80000000) {
-      nextRed -= 1;                                                               // the steps are negative, we need to decrement
-      if(nextRed <= targetRed) {
-        stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
-        nextRed = targetRed;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionOneStart = millis();
-      }
-    }
-    else {
-      nextRed += 1;                                                               // steps are positive, we increment
-      if(nextRed >= targetRed) {
-        stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
-        nextRed = targetRed;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionOneStart = millis();
-      }
-    }
+    nextColorVal(&nextRed, &stripsArrayOfPxl[section][pixel].actionOneTime, &stripsArrayOfPxl[section][pixel].actionOneStart, targetRed);
   }
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionTwoStart >= absVar(stripsArrayOfPxl[section][pixel].actionTwoTime) && stripsArrayOfPxl[section][pixel].actionTwoTime != 0) {
     uint8_t targetGrn = stripsArrayOfPxl[section][pixel].rgbwTarget >> 16;
-    if(stripsArrayOfPxl[section][pixel].actionTwoTime & 0x80000000) {
-      nextGrn -= 1;
-      if(nextGrn <= targetGrn) {
-        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
-        nextGrn = targetGrn;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
-      }
-    }
-    else {
-      nextGrn += 1;
-      if(nextGrn >= targetGrn) {
-        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
-        nextGrn = targetGrn;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
-      }
-    }
+    nextColorVal(&nextGrn, &stripsArrayOfPxl[section][pixel].actionTwoTime, &stripsArrayOfPxl[section][pixel].actionTwoStart, targetGrn);
   }
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionThreeStart >= absVar(stripsArrayOfPxl[section][pixel].actionThreeTime) && stripsArrayOfPxl[section][pixel].actionThreeTime != 0) {
     uint8_t targetBlu = stripsArrayOfPxl[section][pixel].rgbwTarget >> 8;
-    if(stripsArrayOfPxl[section][pixel].actionThreeTime & 0x80000000) {
-      nextBlu -= 1;
-      if(nextBlu <= targetBlu) {
-        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
-        nextBlu = targetBlu;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
-      }
-    }
-    else {
-      nextBlu += 1;
-      if(nextBlu >= targetBlu) {
-        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
-        nextBlu = targetBlu;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
-      }
-    }
+    nextColorVal(&nextBlu, &stripsArrayOfPxl[section][pixel].actionThreeTime, &stripsArrayOfPxl[section][pixel].actionThreeStart, targetBlu);
   }
   // outputting to strip
   pxlColorOut(section, pixel, wrgb2rgbw(neopxlObjArr[section].Color(nextRed, nextGrn, nextBlu, 0)));
 }
 
 
-//******   LED EFFECTS SECTION   ******//
+
+//********   LED EFFECTS SECTION   ********//
 
 
 

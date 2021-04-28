@@ -65,6 +65,7 @@ typedef struct pixelInfo_s {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
+  uint8_t   paddingByte;          // reserved for future use
   int32_t   actionOneTime;        // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
   int32_t   actionTwoTime;        // time between each step for sat (hueFade) or grn (rgbFade)
   int32_t   actionThreeTime;      // time between each step for val (hueFade) or blu (rgbFade)
@@ -102,13 +103,14 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
+void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);
 
 void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0, bool targetUpdt = 0);
 void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0);
 void pxlOFF(uint8_t section, uint8_t pixel);
 void pxlIterator(uint8_t sctCount);
 
-void stripColourFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
+void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 void stripOFF(uint8_t section);
 
 uint32_t rgbw2wrgb(uint32_t rgbwColor);
