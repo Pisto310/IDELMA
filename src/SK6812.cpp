@@ -374,8 +374,6 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fad
   uint32_t actualHSV = rgbw2hsv(stripsArrayOfPxl[section][pixel].rgbwColor);
   uint32_t targetHSV = rgbw2hsv(targetRGB);
 
-  //Serial.println(actualHSV);
-
   // extract hue, sat & val from actual and target colors
   uint16_t actualHue = (uint16_t)((actualHSV & 0xFFFF0000) >> 16);
   uint8_t  actualSat = (uint8_t) ((actualHSV & 0x0000FF00) >>  8);
@@ -395,22 +393,22 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fad
   }
   else if(targetHue > actualHue) {
     if((targetHue - actualHue) < 32768) {
-      // clockwise rotation
+      // clockwise rotation, delta is positive
       hueDelta = targetHue - actualHue;
     }
     else if((targetHue - actualHue) > 32768) {
-      // counter-clockwise rotation
-      hueDelta = (targetHue - actualHue) - 65535;
+      // counter-clockwise rotation, delta is negative
+      hueDelta = targetHue - actualHue - 65535;
     }
   }
   else if(actualHue > targetHue) {
     if((actualHue - targetHue) > 32768) {
-      // clockwise rotation
-      hueDelta = actualHue - targetHue;
+      // clockwise rotation, delta is positive
+      hueDelta = 65535 + targetHue - actualHue;
     }
     else if((actualHue - targetHue) < 32768) {
-      // counter-clockwise rotation
-      hueDelta = (actualHue + targetHue) - 65535;
+      // counter-clockwise rotation, delta is negative
+      hueDelta = targetHue - actualHue;
     }
   }
 
@@ -424,9 +422,9 @@ void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fad
   int32_t satSteps;
   int32_t valSteps;
 
-  hueDelta ? hueSteps = (fadeTime / hueDelta) * 43 : hueSteps = 0;
-  satDelta ? satSteps =  fadeTime / satDelta        : satSteps = 0;
-  valDelta ? valSteps =  fadeTime / valDelta        : valSteps = 0;
+  hueDelta ? hueSteps = ((float)fadeTime / hueDelta) * 43 : hueSteps = 0;
+  satDelta ? satSteps =         fadeTime / satDelta       : satSteps = 0;
+  valDelta ? valSteps =         fadeTime / valDelta       : valSteps = 0;
 
   // assigning step time to pixel attributes
   stripsArrayOfPxl[section][pixel].actionOneTime   = hueSteps;
@@ -456,7 +454,7 @@ void hsvFade(uint8_t section, uint8_t pixel) {
     uint16_t targetHue = (uint16_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0xFFFF0000) >> 16);
     if(stripsArrayOfPxl[section][pixel].actionOneTime & 0x80000000) {
       nextHue -= 43;                                                              // the steps are negative, we need to decrement
-      if(nextHue <= targetHue) {
+      if(absVar(nextHue - targetHue) <= 43) {
         stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
         nextHue = targetHue;
       }
@@ -466,7 +464,7 @@ void hsvFade(uint8_t section, uint8_t pixel) {
     }
     else {
       nextHue += 43;                                                              // steps are positive, we increment
-      if(nextHue >= targetHue) {
+      if(absVar(nextHue - targetHue) <= 43) {
         stripsArrayOfPxl[section][pixel].actionOneTime = 0;                       // target is reached, no need to come back in statement again
         nextHue = targetHue;
       }
@@ -478,50 +476,12 @@ void hsvFade(uint8_t section, uint8_t pixel) {
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionTwoStart >= absVar(stripsArrayOfPxl[section][pixel].actionTwoTime) && stripsArrayOfPxl[section][pixel].actionTwoTime != 0) {
     uint8_t targetSat = (uint8_t)((stripsArrayOfPxl[section][pixel].hsvTarget & 0x0000FF00) >> 8);
-    if(stripsArrayOfPxl[section][pixel].actionTwoTime & 0x80000000) {
-      nextSat -= 1;
-      if(nextSat <= targetSat) {
-        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
-        nextSat = targetSat;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
-      }
-    }
-    else {
-      nextSat += 1;
-      if(nextSat >= targetSat) {
-        stripsArrayOfPxl[section][pixel].actionTwoTime = 0;
-        nextSat = targetSat;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionTwoStart = millis();
-      }
-    }
+    nextColorVal(&nextSat, &stripsArrayOfPxl[section][pixel].actionTwoTime, &stripsArrayOfPxl[section][pixel].actionTwoStart, targetSat);
   }
 
   if(millis() - stripsArrayOfPxl[section][pixel].actionThreeStart >= absVar(stripsArrayOfPxl[section][pixel].actionThreeTime) && stripsArrayOfPxl[section][pixel].actionThreeTime != 0) {
     uint8_t targetVal = (uint8_t)(stripsArrayOfPxl[section][pixel].hsvTarget & 0x000000FF);
-    if(stripsArrayOfPxl[section][pixel].actionThreeTime & 0x80000000) {
-      nextVal -= 1;
-      if(nextVal <= targetVal) {
-        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
-        nextVal = targetVal;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
-      }
-    }
-    else {
-      nextVal += 1;
-      if(nextVal >= targetVal) {
-        stripsArrayOfPxl[section][pixel].actionThreeTime = 0;
-        nextVal = targetVal;
-      }
-      else {
-        stripsArrayOfPxl[section][pixel].actionThreeStart = millis();
-      }
-    }
+    nextColorVal(&nextVal, &stripsArrayOfPxl[section][pixel].actionThreeTime, &stripsArrayOfPxl[section][pixel].actionThreeStart, targetVal);
   }
   // outputting color to strip
   pxlColorOut(section, pixel, (uint32_t)nextHue << 16 | (uint32_t)nextSat << 8 | (uint32_t)nextVal, 1);

@@ -27,7 +27,7 @@ uint8_t sat;
 uint8_t val;
 
 bool hsvFadeTest = 0;
-bool rgbFadeTest = 1;
+bool rgbFadeTest = 0;
 uint32_t orangeTarget  = 0xFFA60000;
 
 uint32_t yellowTarget  = 0xFFFF0000;
@@ -42,7 +42,7 @@ uint32_t lowCyan       = 0x4B7D7D00;
 uint32_t brightRed     = 0xFF808000;
 uint32_t lowBrightRed  = 0x80252500;
 
-uint32_t randomTarget  = 0x38d6aa00;
+uint32_t randomTarget  = 0xc4247800;//0xc4234900;
 
 bool pxlColorOutTest = 0;
 
@@ -90,7 +90,7 @@ void setup() {
   
   neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
   neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED, 0xc4247800);
+  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED, 0x38d6aa00); // 0xc4247800);
   neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
@@ -133,6 +133,9 @@ void loop() {
   if(hsvFadeTest) {
 
     hsvFadeInit(2, 0, randomTarget, 30000);
+    hsvFadeInit(0, 4, 0x8d943c00, 25000);
+    hsvFadeInit(2, 2, 0xd3f42f00, 35000);
+    hsvFadeInit(1, 0, 0x549a7b00, 40000);
     hsvFadeTest = !hsvFadeTest;
   }
 
