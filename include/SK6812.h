@@ -76,7 +76,7 @@ typedef struct pixelInfo_s {
   uint32_t  hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
   uint32_t  rgbwTarget;           // registered target RGBW color for RGB_FADE or WHT_FADE actions
   uint32_t  hsvTarget;            // registered target HSV color for HSV_FADE action
-}pixelInfo;
+}pixelInfo_t;
 
 enum activeLedAction {
   IDLE,                           // LED is ready for action
@@ -95,7 +95,7 @@ extern Adafruit_NeoPixel sctTwo;
 extern Adafruit_NeoPixel sctSix;
 
 // 2D array containing the section number (row) and each pixel of that section (column)
-extern pixelInfo stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+extern pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 // array to combine all instantiated neopxl objects
 extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];

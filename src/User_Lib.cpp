@@ -29,6 +29,13 @@ void serialReadToArray(HardwareSerial &serialToRead, char *recvMess, uint8_t mes
   }
 }
 
+byte convertAsciiToHex(char ascii) {
+  if(ascii > 0x39) {
+    ascii -= 7;
+  }
+  return(ascii & 0x0f);
+}
+
 void mcuHeartBeat(uint16_t heartBeat) {
   static uint8_t ledState = 0;                  //starts at OFF
   static uint32_t saveTime = millis();

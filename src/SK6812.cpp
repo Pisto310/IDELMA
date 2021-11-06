@@ -14,7 +14,7 @@ Adafruit_NeoPixel sctOne  = Adafruit_NeoPixel(LED_COUNT_SCT_1, PIN_SCT_1, NEO_GR
 Adafruit_NeoPixel sctTwo  = Adafruit_NeoPixel(LED_COUNT_SCT_2, PIN_SCT_2, NEO_GRBW + NEO_KHZ800);
 Adafruit_NeoPixel sctSix  = Adafruit_NeoPixel(LED_COUNT_SCT_6, PIN_SCT_6, NEO_GRBW + NEO_KHZ800);
 
-pixelInfo stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 

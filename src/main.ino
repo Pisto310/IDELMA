@@ -3,6 +3,7 @@
 #include "BTmodule.h"
 #include "User_Lib.h"
 #include "SK6812.h"
+#include "Serial_lib.h"
 
 //HC-06 module address 00-14-03-05-5A-D5
 
@@ -11,6 +12,12 @@
 
 
 //************    TEST VAR DECLARATIOIN     **************
+
+serial_obj_t usbSerial;
+
+char serReadBuf[10];
+size_t serMessLen = 8;
+size_t nbrOfBytes;
 
 char play[5] = "play";
 char stop[5] = "stop";
@@ -46,6 +53,9 @@ uint32_t randomTarget  = 0xc4247800;//0xc4234900;
 
 bool pxlColorOutTest = 0;
 
+uint8_t serialTestSct = 0;
+uint8_t serialTestPxl = 0;
+
 //************    TEST VAR DECLARATIOIN     **************
 
 
@@ -65,9 +75,10 @@ void setup() {
   // initializing the built-in LED for HeartBeat
   pinMode(LED_BUILTIN, OUTPUT);
 
-  // setting up the serial port for debugging on serial monitor
+  // setting up the serial port for debugging on serial monitor and updating obj. attri.
   Serial.begin(9600);
-  
+  usbSerial.serialPort = &Serial;
+  //Serial.setTimeout(1);
   
   
   //*************   BT MODULE SET-UP   **************//
@@ -90,7 +101,7 @@ void setup() {
   
   neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
   neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED, 0x38d6aa00); // 0xc4247800);
+  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED); //, 0x38d6aa00);  //0xc4247800);
   neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
@@ -102,8 +113,15 @@ void setup() {
 void loop() {
   
   mcuHeartBeat(heartBeat);
+  
+  if(Serial.available()) {
+    serialRxRead(&usbSerial);
+    serialColorRx(&usbSerial);
+  }
 
-  if(sparkleTest) {
+  pxlIterator(4);
+
+/*   if(sparkleTest) {
     sparkleInit(0);
     sparkleInit(1);
     sparkleTest = !sparkleTest;
@@ -160,9 +178,22 @@ void loop() {
     rgbFadeInit(2, 2, 0xd3f42f00, 35000);
     rgbFadeInit(1, 0, 0x549a7b00, 40000);
     rgbFadeTest = !rgbFadeTest;
-  }
+  } */
 
-  pxlIterator(4);
+/*   if(Serial.available() > 0) {
+    // read the incoming bytes:
+    nbrOfBytes = Serial.readBytes(serReadBuf, 10);
+
+    if(serReadBuf[0] == 49) { 
+      //if received bytes ASCII is '1', write the ASCII '49' to its human readable
+      //equivalent of '1' on serial monitor
+      Serial.write(serReadBuf, nbrOfBytes);
+    }
+  } */
+  // Arduino read the bytes in the ASCII format. Sending '1' and printing it on the
+  // serial monitor gives '49', its ASCII equivalent
+  
+ 
 
   /*
   serialReadToArray(Serial1, btBuffer, 64);
