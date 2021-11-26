@@ -1,9 +1,10 @@
 //Arduino.h is included in the header of the NeoPixel lib
 
-#include "BTmodule.h"
+//#include "BTmodule.h"
 #include "User_Lib.h"
 #include "SK6812.h"
 #include "Serial_lib.h"
+#include "Dump.h"
 
 //HC-06 module address 00-14-03-05-5A-D5
 
@@ -13,18 +14,18 @@
 
 //************    TEST VAR DECLARATIOIN     **************
 
+// uint16_t ramStart = 0x0200;
+// int *ptrLeFun = (int*)malloc(2);
+
+// bool sparkleTest = 0;
+
 serial_obj_t usbSerial;
 
-char serReadBuf[10];
-size_t serMessLen = 8;
-size_t nbrOfBytes;
-
+/*
 char play[5] = "play";
 char stop[5] = "stop";
 
 char btBuffer[64];
-
-bool sparkleTest = 0;
 
 bool hueTest = 0;
 uint32_t hsvTest;
@@ -55,13 +56,14 @@ bool pxlColorOutTest = 0;
 
 uint8_t serialTestSct = 0;
 uint8_t serialTestPxl = 0;
+*/
 
 //************    TEST VAR DECLARATIOIN     **************
 
 
 
 
-
+byte array_1[3] = {3, 1, 14};
 
 uint16_t heartBeat = 1000;                  // in milliseconds
 
@@ -69,6 +71,7 @@ uint8_t brightnessLED = 50;
 
 uint8_t sctCntTracker = 0;                  // var that keeps track of the index in the strips and neopxlObj arrays
 uint8_t *ptrSctCntTracker = &sctCntTracker;
+
 
 void setup() {
 
@@ -79,8 +82,7 @@ void setup() {
   Serial.begin(9600);
   usbSerial.serialPort = &Serial;
   //Serial.setTimeout(1);
-  
-  
+
   //*************   BT MODULE SET-UP   **************//
   
   /*
@@ -94,15 +96,19 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
+  // array_1[0] = 0xAA;
+  // array_1[15] = 0xBB;
+  // array_2[0] = 0xCC;
+  // array_2[15] = 0xDD;
 
-
+  // *ptrLeFun = 0x5555;
 
   //*************   STRIP AND LEDS SET-UP   *************//
   
-  neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED); //, 0x38d6aa00);  //0xc4247800);
-  neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  //neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  //neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  //neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED); //, 0x38d6aa00);  //0xc4247800);
+  //neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
   // decrementing the section count to have the exact number
   --sctCntTracker;
@@ -111,15 +117,34 @@ void setup() {
 }
 
 void loop() {
+
+  // if(!sparkleTest) {
+  //   dumpRam(Serial, &ramStart, 8192);
+  //   sparkleTest = !sparkleTest;
+  // }
   
   mcuHeartBeat(heartBeat);
-  
-  if(Serial.available()) {
-    serialRxRead(&usbSerial);
-    serialColorRx(&usbSerial);
-  }
 
-  pxlIterator(4);
+  // Serial.write(array_1, sizeof(array_1));
+	// delay(1000);
+  
+  // Gonna have to check for all serial (USB Serial and BT Serial 1)
+  
+  serialRxCheck(&usbSerial);
+  serialTxCheck(&usbSerial);
+  
+  // if(Serial.available()) {
+  //   serialRxRead(&usbSerial);
+  //   serialColorRx(&usbSerial);
+  //   for(uint8_t i = 0; i < usbSerial.nbXtractedBytes; i++) {
+  //     Serial.println(usbSerial.rxByteBuf[i]);
+  //   }
+  //   serialInterpreter(&usbSerial);
+  // }
+
+
+
+  // pxlIterator(4);
 
 /*   if(sparkleTest) {
     sparkleInit(0);

@@ -7,31 +7,160 @@ Description : All things serial lib source file
 #include "Serial_lib.h"
 #include "User_Lib.h"
 #include "SK6812.h"
+#include "Board.h"
 
-void serialRxRead(serial_obj_t *serialObj) {
-  while((*serialObj->serialPort).available()) {
-    serialObj->xtractedBytes = (*serialObj->serialPort).readBytes(serialObj->rxByteBuf, 64);
+//**********    LOCAL VARIABLES DECLARATION   ************//
+
+enum serial_actions {
+  SER_RQST_SEND_INFOS
+};
+
+//**********    LOCAL VARIABLES DECLARATION   ************//
+
+
+
+
+//**********    LOCAL FUNCTIONS DECLARATION   ************//
+
+void serialClrBuf(serial_obj_t *serialObj);
+void serialInterpreter(serial_obj_t *serialObj);
+void serialBuildMessage(serial_obj_t *serialObj, byte messageBytes[]);
+
+//**********    LOCAL FUNCTIONS DECLARATION   ************//
+
+
+
+void serialRxCheck(serial_obj_t *serialObj) {
+
+  switch (serialObj->rxStatus) {
+  
+  case SER_RX_RQST:
+    serialObj->bytesInBuf = (*serialObj->serialPort).readBytes(serialObj->buffer, 64);
+    if(serialObj->bytesInBuf) {
+      // Read was succesful
+      serialObj->rxStatus = SER_RX_CMPLT;
+    }
+    else {
+      // Code breaking case, not supposed to be here
+      serialObj->rxStatus = SER_RX_DEADEND;
+      Serial.print("Ain't supposed to be here!");
+    }
+    break;
+
+  case SER_RX_CMPLT:
+    // Unfreeze TX before interpreting
+    serialObj->txStatus = SER_TX_IDLE;
+    serialInterpreter(serialObj);
+    // clearing all RX attributes
+    serialClrBuf(serialObj);            // important to clear buffer first
+    serialObj->bytesInBuf = 0;
+    serialObj->rxStatus = SER_RX_IDLE;
+    break;
+
+  case SER_RX_FRZ:
+    // when TX is busy, we skip checking for rx buffer
+    break;
+  
+  default:
+    // default case considers that rxStatus is IDLE
+    if(Serial.available()) {
+      serialObj->rxStatus = SER_RX_RQST;
+      serialObj->txStatus = SER_TX_FRZ;
+    }
+    break;
   }
 }
+
+void serialTxCheck(serial_obj_t *serialObj) {
+
+  switch (serialObj->txStatus) {
+
+  case SER_TX_RQST:
+    if(serialObj->txBoardInfos) {
+      // Get board infos and put them into the buffer
+      infosBufferFill(serialObj->buffer);
+      serialObj->bytesInBuf = BOARD_INFO_STRUCT_LEN;
+      serialObj->txStatus = SER_TX_RDY;
+    }
+    break;
+  
+  case SER_TX_RDY:
+    // Send buffer content on serial port
+    //(*serialObj->serialPort).println((*serialObj->serialPort).availableForWrite());
+    (*serialObj->serialPort).write(serialObj->buffer, 1);
+    delay(1000);
+    //(*serialObj->serialPort).println((*serialObj->serialPort).availableForWrite());
+    serialObj->txStatus = SER_TX_CMPLT;
+    break;
+
+  case SER_TX_CMPLT:
+    // Unfreeze RX
+    serialObj->rxStatus = SER_RX_IDLE;
+    // clearing all TX attributes
+    serialClrBuf(serialObj);            // important to clear buffer first
+    serialObj->bytesInBuf = 0;
+    serialObj->txBoardInfos = 0;
+    serialObj->txSetupInfos = 0;
+    serialObj->txStatus = SER_TX_IDLE;
+    break;
+
+  case SER_TX_FRZ:
+    // If RX is busy, we don't check request for transmitting
+    break;
+  
+  default:
+    // default is to check if there is a TX request
+    if(serialObj->txBoardInfos || serialObj->txSetupInfos) {
+      serialObj->txStatus = SER_TX_RQST;
+      serialObj->rxStatus = SER_RX_FRZ;
+    }
+    break;
+  }
+
+}
+
+void serialClrBuf(serial_obj_t *serialObj) {
+  for(size_t i = 0; i < serialObj->bytesInBuf; i++) {
+    serialObj->buffer[i] = 0;
+  }
+}
+
+void serialInterpreter(serial_obj_t *serialObj) {
+
+  switch (convertAsciiToHex(serialObj->buffer[0])) {
+  
+  case SER_RQST_SEND_INFOS:
+    serialObj->txBoardInfos = 1;
+    serialObj->txStatus = SER_TX_RQST;
+    break;
+  }
+}
+
+
+// // This func reads the first bytes of a serial buffer and saves the action to undertake
+// void serialInterpreter(serial_obj_t *serialObj) {
+//   Serial.println(convertAsciiToHex(serialObj->rxByteBuf[0]), BIN);
+//   serialObj->status = (serial_status_t)convertAsciiToHex(serialObj->rxByteBuf[0]);
+// }
 
 void serialColorRx(serial_obj_t *serialObj) {
   // All things related to color could be in another function
   // keeping only lines 22-25 would make sense in the context of the func's name
   int8_t rgbwColor[4] = {0, 0, 0, 0};
 
-  for(uint8_t i = 0; i < serialObj->xtractedBytes; i += 2) {
-    rgbwColor[i >> 1] = ((uint8_t) (convertAsciiToHex(serialObj->rxByteBuf[i])) << 4) | 
-                        ((uint8_t)  convertAsciiToHex(serialObj->rxByteBuf[i + 1]));
+  for(uint8_t i = 0; i < serialObj->bytesInBuf; i += 2) {
+    rgbwColor[i >> 1] = ((uint8_t) (convertAsciiToHex(serialObj->buffer[i])) << 4) | 
+                        ((uint8_t)  convertAsciiToHex(serialObj->buffer[i + 1]));
    }
 
-  uint32_t colorToSend = (((uint32_t) rgbwColor[0]) << 24) |
-                         (((uint32_t) rgbwColor[1]) << 16) |
-                         (((uint32_t) rgbwColor[2]) << 8 ) |
-                          ((uint32_t) rgbwColor[3]       );
+  // uint32_t colorToSend = (((uint32_t) rgbwColor[0]) << 24) |
+  //                        (((uint32_t) rgbwColor[1]) << 16) |
+  //                        (((uint32_t) rgbwColor[2]) << 8 ) |
+  //                         ((uint32_t) rgbwColor[3]       );
     
   // Serial.println(colorToSend);
 
   // Pixel and sections ar hardcoded for debugging
-  pxlColorOut(0, 0, colorToSend);
-  Serial.println(stripsArrayOfPxl[0][0].rgbwColor);
+  //pxlColorOut(0, 0, colorToSend);
+  //Serial.println(stripsArrayOfPxl[0][0].rgbwColor);
 }
