@@ -20,11 +20,11 @@ board_infos_t getBoardInfos() {
   return boardInfo;
 }
 
-void infosBufferFill(byte byteBuffer[64]) {
-  for(uint8_t index = 0; index < BOARD_INFO_STRUCT_LEN; ++index) {
-    //Serial.println(index);
-
+// Fills buffer with boardInfo struct content and returns how many bytes it now contains
+size_t infosBufferFill(byte byteBuffer[64]) {
+  for(uint8_t index = 0; index < BOARD_INFO_STRUCT_LEN(boardInfo); ++index) {
     switch (index) {
+    
     case 0:
       byteBuffer[index] = boardInfo.sn;
       break;
@@ -37,6 +37,7 @@ void infosBufferFill(byte byteBuffer[64]) {
       byteBuffer[index] = boardInfo.fwVersionMinor;
     }
   }
+  return(BOARD_INFO_STRUCT_LEN(boardInfo));
 }
 
 //**********    GLOBAL FUNC DEFINITION   ************//

@@ -14,12 +14,15 @@
 
 //************    TEST VAR DECLARATIOIN     **************
 
-// uint16_t ramStart = 0x0200;
-// int *ptrLeFun = (int*)malloc(2);
+uint16_t ramStart = 0x0200;
 
-// bool sparkleTest = 0;
+bool sparkleTest = 0;
 
 serial_obj_t usbSerial;
+
+
+
+pixelInfo_t* ptrTemp;
 
 /*
 char play[5] = "play";
@@ -61,16 +64,9 @@ uint8_t serialTestPxl = 0;
 //************    TEST VAR DECLARATIOIN     **************
 
 
-
-
-byte array_1[3] = {3, 1, 14};
-
 uint16_t heartBeat = 1000;                  // in milliseconds
 
 uint8_t brightnessLED = 50;
-
-uint8_t sctCntTracker = 0;                  // var that keeps track of the index in the strips and neopxlObj arrays
-uint8_t *ptrSctCntTracker = &sctCntTracker;
 
 
 void setup() {
@@ -96,12 +92,44 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  // array_1[0] = 0xAA;
-  // array_1[15] = 0xBB;
-  // array_2[0] = 0xCC;
-  // array_2[15] = 0xDD;
+  createSection(10, brightnessLED);
+  createSection(2, brightnessLED);
+  createSection(4, brightnessLED);
+  createSection(7, brightnessLED);
+  createSection(11, brightnessLED);
+  createSection(5, brightnessLED);
+  createSection(20, brightnessLED);
+  // createSection(3, brightnessLED);
+  // createSection(3, brightnessLED);
+  // createSection(3, brightnessLED);
+  // createSection(3, brightnessLED);
+  // createSection(3, brightnessLED);
 
-  // *ptrLeFun = 0x5555;
+  updatingPixelAttr(0, 8, 0xF00FA00A);
+
+  /*
+  arrPtrPxlInfo[0] = ptrPxlInfo;
+  arrPtrPxlInfo[1] = (arrPtrPxlInfo[0] + 3);
+  arrPtrPxlInfo[2] = ptrPxlInfo + 6;
+  arrPtrPxlInfo[3] = ptrPxlInfo + 9;
+  arrPtrPxlInfo[4] = ptrPxlInfo + 12;
+  arrPtrPxlInfo[5] = ptrPxlInfo + 15;
+  arrPtrPxlInfo[6] = ptrPxlInfo + 18;
+  arrPtrPxlInfo[7] = ptrPxlInfo + 21;
+  arrPtrPxlInfo[8] = ptrPxlInfo + 24;
+  arrPtrPxlInfo[9] = ptrPxlInfo + 27;
+  arrPtrPxlInfo[10]= ptrPxlInfo + 30;
+  arrPtrPxlInfo[11]= ptrPxlInfo + 33;
+
+  (arrPtrPxlInfo[1] + 1)->pxlSct = 0xD4;
+  (arrPtrPxlInfo[1] + 1)->hsvTarget = 0xF00FA00A;
+
+  arrPtrPxlInfo[0]->pxlSct = 0xD4;
+  arrPtrPxlInfo[0]->hsvTarget = 0xF00FA00A;
+
+  arrPtrPxlInfo[11]->pxlSct = 0xD7;
+  arrPtrPxlInfo[11]->hsvTarget = 0xF00FA00A;
+  */
 
   //*************   STRIP AND LEDS SET-UP   *************//
   
@@ -110,18 +138,15 @@ void setup() {
   //neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED); //, 0x38d6aa00);  //0xc4247800);
   //neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
 
-  // decrementing the section count to have the exact number
-  --sctCntTracker;
-
   //*************   STRIP AND LEDS SET-UP   *************//
 }
 
 void loop() {
 
-  // if(!sparkleTest) {
-  //   dumpRam(Serial, &ramStart, 8192);
-  //   sparkleTest = !sparkleTest;
-  // }
+  if(ptrPxlInfo && !sparkleTest) {
+    dumpRam(Serial, &ramStart, 8192);
+    sparkleTest = !sparkleTest;
+  }
   
   mcuHeartBeat(heartBeat);
 

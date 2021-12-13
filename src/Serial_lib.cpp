@@ -43,7 +43,7 @@ void serialRxCheck(serial_obj_t *serialObj) {
     else {
       // Code breaking case, not supposed to be here
       serialObj->rxStatus = SER_RX_DEADEND;
-      Serial.print("Ain't supposed to be here!");
+      // Serial.print("Ain't supposed to be here!");
     }
     break;
 
@@ -63,6 +63,7 @@ void serialRxCheck(serial_obj_t *serialObj) {
   
   default:
     // default case considers that rxStatus is IDLE
+    //delay(3000);
     if(Serial.available()) {
       serialObj->rxStatus = SER_RX_RQST;
       serialObj->txStatus = SER_TX_FRZ;
@@ -78,18 +79,14 @@ void serialTxCheck(serial_obj_t *serialObj) {
   case SER_TX_RQST:
     if(serialObj->txBoardInfos) {
       // Get board infos and put them into the buffer
-      infosBufferFill(serialObj->buffer);
-      serialObj->bytesInBuf = BOARD_INFO_STRUCT_LEN;
+      serialObj->bytesInBuf = infosBufferFill(serialObj->buffer);
       serialObj->txStatus = SER_TX_RDY;
     }
     break;
   
   case SER_TX_RDY:
-    // Send buffer content on serial port
-    //(*serialObj->serialPort).println((*serialObj->serialPort).availableForWrite());
-    (*serialObj->serialPort).write(serialObj->buffer, 1);
-    delay(1000);
-    //(*serialObj->serialPort).println((*serialObj->serialPort).availableForWrite());
+    // Send buffer content on serial port    
+    (*serialObj->serialPort).write(serialObj->buffer, serialObj->bytesInBuf);
     serialObj->txStatus = SER_TX_CMPLT;
     break;
 
@@ -135,6 +132,14 @@ void serialInterpreter(serial_obj_t *serialObj) {
     break;
   }
 }
+
+
+
+
+
+
+
+
 
 
 // // This func reads the first bytes of a serial buffer and saves the action to undertake

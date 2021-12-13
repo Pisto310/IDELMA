@@ -2,28 +2,41 @@
 header file for declaring the functions (scenes) associated with the SK6812 LEDs
 */
 
+#ifndef SK6812_H_
+#define SK6812_H_
+
 #include "Adafruit_NeoPixel.h"
 #include "Arduino.h"
 #include "User_Lib.h"
 
-// max number of sections to be instanciated. Based on available PWM pins of HW, 8 in our case
-#define MAX_NO_SCTS         8
+#define PXLINFO_HEAP_SIZE                36
+#define PXLINFO_MAX_INDEX(_size)    (_size - 1)
 
-// macros to map the zone to its digital output pin
-#define PIN_SCT_0           2
-#define PIN_SCT_1           3
-#define PIN_SCT_2           4
-#define PIN_SCT_3           5
-#define PIN_SCT_4           6
-#define PIN_SCT_5           7
-#define PIN_SCT_6           8
-#define PIN_SCT_7           9
+// maximum number of sections that are possible to instanciate w/ the Arduino Mega
+#define MAX_NO_SCTS         12
+
+// all possible PWM pins on the Mega that can be used to control the SK6812 LEDs (12 total)
+#define PIN_SCT_0            2
+#define PIN_SCT_1            3
+#define PIN_SCT_2            4
+#define PIN_SCT_3            5
+#define PIN_SCT_4            6
+#define PIN_SCT_5            7
+#define PIN_SCT_6            8
+#define PIN_SCT_7            9
+#define PIN_SCT_8           10
+#define PIN_SCT_9           11
+#define PIN_SCT_10          12
+#define PIN_SCT_11          13
+
+#define DEFAULT_LED_COUNT    6
 
 
 
 
 //******** Will be removed later ********//
 
+/*
 // sections count, to be adjusted for each project
 #define SCT_COUNT           8
 
@@ -39,14 +52,17 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #define LED_COUNT_SCT_5     6
 #define LED_COUNT_SCT_6     6
 #define LED_COUNT_SCT_7     6
+*/
 
 //******** Will be removed later ********//
 
 
 
 
+
 // struct to store the info of each pixel
-typedef struct pixelInfo_s {
+// each struct occupies a space of 44 bytes
+typedef struct {
   uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
   uint8_t   pxlState;             // pixel state
@@ -80,56 +96,43 @@ enum activeLedAction {
 
 //**********   SK6812 STRIPS DECLARATION   **********//
 
-/*
-One Adafruit_NeoPixel object is equivalent to 22 bytes in RAM, regardless of how many LEDs
-there are per sections
-*/
-
-//extern volatile byte array_1[16];
-
-/*
-extern Adafruit_NeoPixel sctZero;
-extern Adafruit_NeoPixel sctOne;
-extern Adafruit_NeoPixel sctTwo;
-extern Adafruit_NeoPixel sctThree;
-extern Adafruit_NeoPixel sctFour;
-extern Adafruit_NeoPixel sctFive;
-extern Adafruit_NeoPixel sctSix;
-extern Adafruit_NeoPixel sctSeven;
-*/
-
-extern volatile byte array_2[16];
-
-/*
-1. Declare all Adafruit_NeoPixel objects
-2. Allocate memory to store an array containing these objects
-3. Read user commands to set the number of LEDs in each obj with updateLength func
-4. Free allocated memory space when user has finished filling in sections
-
-The idea here is to replace this 2D array of potentialy "empty" elements (since not
-all strips/sections will have the same length) with an array of pointer to 1D arrays
-of pixelInfo_t elements, each with varying length
-*/
+// One Adafruit_NeoPixel object is equivalent to 22 bytes in RAM, regardless of how many LED there are per sections
+extern Adafruit_NeoPixel  sct_0;
+extern Adafruit_NeoPixel  sct_1;
+extern Adafruit_NeoPixel  sct_2;
+extern Adafruit_NeoPixel  sct_3;
+extern Adafruit_NeoPixel  sct_4;
+extern Adafruit_NeoPixel  sct_5;
+extern Adafruit_NeoPixel  sct_6;
+extern Adafruit_NeoPixel  sct_7;
+extern Adafruit_NeoPixel  sct_8;
+extern Adafruit_NeoPixel  sct_9;
+extern Adafruit_NeoPixel sct_10;
+extern Adafruit_NeoPixel sct_11;
 
 
 // 2D array containing the section number (row) and each pixel of that section (column)
 // volatile extern pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
-/*
-// array to combine all instantiated neopxl objects
-extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
-*/
-
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 
+/*
+The old way of storing all pixelInfo_t struct instance was to declare a 2D array that was MAX_NO_SCTS X LENGTH_OF_LONGEST_SECTION.
+This would mean that for sections shorter than the longest, we would have blank memory space that was wasted.
+
+Now, we dynamically allocate space in RAM (heap) of size PXLINFO_HEAP_SIZE. This returns us a pointer to the start of the heap.
+Then, we declare an array of size MAX_NO_SCTS that will contain the pxlInfo pointers. These pointers will mark the start of each section.
+Finally, as we did before, we can work with an array of Adafruit_Neopxl obj of the same size (MAX_NO_SCTS) as the array of pointers to pxlInfo struct, 
+*/
+
+extern pixelInfo_t* ptrPxlInfo;
+extern pixelInfo_t* arrPtrPxlInfo[];
+//extern Adafruit_NeoPixel neopxlObjArr[];
 
 
-
-
-
-
-
+void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness);
+void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 
 // void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
 // void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);
@@ -142,10 +145,10 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 // void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 // void stripOFF(uint8_t section);
 
-// uint32_t rgbw2wrgb(uint32_t rgbwColor);
-// uint32_t wrgb2rgbw(uint32_t wrgbColor);
-// uint32_t rgbw2rgb(uint32_t rgbwColor);
-// uint32_t rgbw2hsv(uint32_t rgbwColor);
+uint32_t rgbw2wrgb(uint32_t rgbwColor);
+uint32_t wrgb2rgbw(uint32_t wrgbColor);
+uint32_t rgbw2rgb(uint32_t rgbwColor);
+uint32_t rgbw2hsv(uint32_t rgbwColor);
 
 // void blinkOnce(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime, bool blinkState = 1); 
 // void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime);
@@ -156,4 +159,4 @@ extern Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
 // void sparkleInit(uint8_t section);
 // void sparkleSct(uint8_t section, uint8_t pixel);
 
-uint8_t getAssignedScts();
+#endif

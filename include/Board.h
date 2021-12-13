@@ -13,7 +13,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 #define FW_VERSION_MAJOR        0
 #define FW_VERSION_MINOR        1
 
-#define BOARD_INFO_STRUCT_LEN   3
+#define BOARD_INFO_STRUCT_LEN(_infoStruct)    (sizeof(_infoStruct))   
 
 //**********    GLOBAL TYPES DECLARATION   ************//
 
@@ -29,7 +29,7 @@ typedef struct {
 //**********    GLOBAL FUNC DECLARATION   ************//
 
 board_infos_t getBoardInfos();
-void infosBufferFill(byte byteBuffer[64]);
+size_t infosBufferFill(byte byteBuffer[64]);
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 

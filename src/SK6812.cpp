@@ -6,43 +6,30 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 #include "SK6812.h"
 
-
-
-
-
-
-
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
-//volatile byte array_1[16];
+pixelInfo_t* ptrPxlInfo = (pixelInfo_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pixelInfo_t));
+pixelInfo_t* arrPtrPxlInfo[MAX_NO_SCTS];
 
-/*
-Adafruit_NeoPixel sctZero  = Adafruit_NeoPixel(LED_COUNT_SCT_0, PIN_SCT_0, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctOne   = Adafruit_NeoPixel(LED_COUNT_SCT_1, PIN_SCT_1, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctTwo   = Adafruit_NeoPixel(LED_COUNT_SCT_2, PIN_SCT_2, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctThree = Adafruit_NeoPixel(LED_COUNT_SCT_3, PIN_SCT_3, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctFour  = Adafruit_NeoPixel(LED_COUNT_SCT_4, PIN_SCT_4, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctFive  = Adafruit_NeoPixel(LED_COUNT_SCT_5, PIN_SCT_5, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctSix   = Adafruit_NeoPixel(LED_COUNT_SCT_6, PIN_SCT_6, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel sctSeven = Adafruit_NeoPixel(LED_COUNT_SCT_7, PIN_SCT_7, NEO_GRBW + NEO_KHZ800);
-*/
-
-volatile byte array_2[16];
-
+// Filling the neopxl Objects array
+Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_0, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_1, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_2, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_3, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_4, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_5, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_6, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_7, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_8, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_9, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT, PIN_SCT_10, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(DEFAULT_LED_COUNT, PIN_SCT_11, NEO_GRBW + NEO_KHZ800),
+};
 
 // volatile pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
-uint8_t assignedScts = 0;
-
-//Adafruit_NeoPixel neopxlObjArr[SCT_COUNT];
-
 //**********    GLOBAL VARIABLES DECLARATION   ************//
-
-
-
-
-
-
 
 
 
@@ -56,6 +43,50 @@ uint8_t assignedScts = 0;
 // uint32_t sunColor = rgbw2wrgb(0xFFFF1400);
 
 // //**********    LOCAL VARIABLES DECLARATION   ************//
+
+
+void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
+  
+  // var to keep track of the section to instanciate and space available in heap
+  static uint8_t sctTracker = 0;
+  static uint8_t freeSpace = PXLINFO_HEAP_SIZE;
+
+  if((freeSpace - nbrOfLEDs) >= 0 && sctTracker <= (MAX_NO_SCTS - 1)) {
+    // Everything related to pxlInfo struct is done here
+    arrPtrPxlInfo[sctTracker] = ptrPxlInfo;
+    ptrPxlInfo += nbrOfLEDs;
+
+    for(uint8_t pxlNbr = 0; pxlNbr < nbrOfLEDs; pxlNbr++) {
+      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlSct   = sctTracker;
+      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlNbr   = pxlNbr;
+      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlState = IDLE;
+    }
+
+    // Everything related to the neopxl object itself is done below
+    neopxlObjArr[sctTracker].updateLength((uint16_t)nbrOfLEDs);
+    // needs to be done for each instanciated neopxlObj
+    neopxlObjArr[sctTracker].begin();
+    neopxlObjArr[sctTracker].setBrightness(maxBrightness);
+  
+    // incrementing section tracker for next pass in func and updating heap available space
+    ++sctTracker;
+    freeSpace -= nbrOfLEDs;
+  }
+  else {
+    Serial.println("Can't create anymore sections");
+  }
+}
+
+void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
+  // Got to check if the pixel number asked for is part of the section
+  if(pixel < neopxlObjArr[section].numPixels()) {
+    (arrPtrPxlInfo[section] + pixel)->hsvTarget = whatev;
+  }
+  else {
+    Serial.println("pixel passed is out of range");
+  }
+}
+
 
 
 
@@ -288,82 +319,82 @@ uint8_t assignedScts = 0;
 
 
 
-// uint32_t rgbw2wrgb(uint32_t rgbwColor) {
-//   return((rgbwColor >> 8) | (rgbwColor << 24));
-// }
+uint32_t rgbw2wrgb(uint32_t rgbwColor) {
+  return((rgbwColor >> 8) | (rgbwColor << 24));
+}
 
-// uint32_t wrgb2rgbw(uint32_t wrgbColor) {
-//   return((wrgbColor << 8) | wrgbColor >> 24);
-// }
+uint32_t wrgb2rgbw(uint32_t wrgbColor) {
+  return((wrgbColor << 8) | wrgbColor >> 24);
+}
 
-// uint32_t rgbw2rgb(uint32_t rgbwColor) {
-//   return(rgbwColor & 0xFFFFFF00);
-// }
+uint32_t rgbw2rgb(uint32_t rgbwColor) {
+  return(rgbwColor & 0xFFFFFF00);
+}
 
-// // converts from RGB to HSV color space
-// // takes a RRGGBBWW color as input, and return a 32 bit value containing the HSV info
-// // return value is decomposed as follow : bits 0-7 -> VAL | bits 8-15 -> SAT | bits 16-31 -> HUE
-// uint32_t rgbw2hsv(uint32_t rgbwColor) {
+// converts from RGB to HSV color space
+// takes a RRGGBBWW color as input, and return a 32 bit value containing the HSV info
+// return value is decomposed as follow : bits 0-7 -> VAL | bits 8-15 -> SAT | bits 16-31 -> HUE
+uint32_t rgbw2hsv(uint32_t rgbwColor) {
   
-//   // values to combine when func will use return statement
-//   uint32_t hue = 0;
-//   uint32_t sat = 0;
-//   uint32_t val = 0;
+  // values to combine when func will use return statement
+  uint32_t hue = 0;
+  uint32_t sat = 0;
+  uint32_t val = 0;
 
-//   // extracting each color from the packed 32-bits value
-//   uint8_t red = (uint8_t)((rgbwColor & 0xFF000000) >> 24);
-//   uint8_t grn = (uint8_t)((rgbwColor & 0x00FF0000) >> 16);
-//   uint8_t blu = (uint8_t)((rgbwColor & 0x0000FF00) >>  8);
+  // extracting each color from the packed 32-bits value
+  uint8_t red = (uint8_t)((rgbwColor & 0xFF000000) >> 24);
+  uint8_t grn = (uint8_t)((rgbwColor & 0x00FF0000) >> 16);
+  uint8_t blu = (uint8_t)((rgbwColor & 0x0000FF00) >>  8);
 
-//   // casting as float for hue calculation further down
-//   float redQ = (float)red;
-//   float grnQ = (float)grn;
-//   float bluQ = (float)blu;
+  // casting as float for hue calculation further down
+  float redQ = (float)red;
+  float grnQ = (float)grn;
+  float bluQ = (float)blu;
 
-//   // checking which color val is Max and which is Min
-//   float maxColorVal = (uint8_t)(max(red, max(grn, blu)));
-//   float minColorVal = (uint8_t)(min(red, min(grn, blu)));
+  // checking which color val is Max and which is Min
+  float maxColorVal = (uint8_t)(max(red, max(grn, blu)));
+  float minColorVal = (uint8_t)(min(red, min(grn, blu)));
 
-//   // val calculation
-//   // in the case that the Value is zero, the other parameters are also at zero since the LED is OFF
-//   if(!maxColorVal) {
-//     return((hue << 16) | (sat << 8) | val);
-//   }
-//   else {
-//     val = maxColorVal;
-//   }
+  // val calculation
+  // in the case that the Value is zero, the other parameters are also at zero since the LED is OFF
+  if(!maxColorVal) {
+    return((hue << 16) | (sat << 8) | val);
+  }
+  else {
+    val = maxColorVal;
+  }
 
-//   // saturation calculation
-//   sat = (uint8_t)(((maxColorVal - minColorVal) / maxColorVal) * 255);
-//   // in the case of saturation 0, hue is not inmportant cause color is set to WHT
-//   if(!sat) {
-//     return((hue << 16) | (sat << 8) | val);
-//   }
+  // saturation calculation
+  sat = (uint8_t)(((maxColorVal - minColorVal) / maxColorVal) * 255);
+  // in the case of saturation 0, hue is not inmportant cause color is set to WHT
+  if(!sat) {
+    return((hue << 16) | (sat << 8) | val);
+  }
 
-//   // hue calculation
-//   // normally, the first term of the equation is 60°, 
-//   // but in our case, the whole 360° is 65 535, so 60° is a sixth of that (10 922)
-//   if(red >= grn && grn >= blu) {
-//     hue = (uint16_t)(        10922 * ((grnQ - bluQ) / (redQ - bluQ)));
-//   }
-//   else if(grn > red && red >= blu) {
-//     hue = (uint16_t)(21845 - 10922 * ((redQ - bluQ) / (grnQ - bluQ)));
-//   }
-//   else if(grn >= blu && blu > red) {
-//     hue = (uint16_t)(21845 + 10922 * ((bluQ - redQ) / (grnQ - redQ)));
-//   }
-//   else if(blu > grn && grn > red) {
-//     hue = (uint16_t)(43690 - 10922 * ((grnQ - redQ) / (bluQ - redQ)));
-//   }
-//   else if(blu > red && red >= grn) {
-//     hue = (uint16_t)(43690 + 10922 * ((redQ - grnQ) / (bluQ - grnQ)));
-//   }
-//   else if(red >= blu && blu > grn) {
-//     hue = (uint16_t)(65535 - 10922 * ((bluQ - grnQ) / (redQ - grnQ)));
-//   }
+  // hue calculation
+  // normally, the first term of the equation is 60°, 
+  // but in our case, the whole 360° is 65 535, so 60° is a sixth of that (10 922)
+  if(red >= grn && grn >= blu) {
+    hue = (uint16_t)(        10922 * ((grnQ - bluQ) / (redQ - bluQ)));
+  }
+  else if(grn > red && red >= blu) {
+    hue = (uint16_t)(21845 - 10922 * ((redQ - bluQ) / (grnQ - bluQ)));
+  }
+  else if(grn >= blu && blu > red) {
+    hue = (uint16_t)(21845 + 10922 * ((bluQ - redQ) / (grnQ - redQ)));
+  }
+  else if(blu > grn && grn > red) {
+    hue = (uint16_t)(43690 - 10922 * ((grnQ - redQ) / (bluQ - redQ)));
+  }
+  else if(blu > red && red >= grn) {
+    hue = (uint16_t)(43690 + 10922 * ((redQ - grnQ) / (bluQ - grnQ)));
+  }
+  else if(red >= blu && blu > grn) {
+    hue = (uint16_t)(65535 - 10922 * ((bluQ - grnQ) / (redQ - grnQ)));
+  }
 
-//   return(((uint32_t)hue << 16) | ((uint32_t)sat << 8) | ((uint32_t)val));
-// }
+  return(((uint32_t)hue << 16) | ((uint32_t)sat << 8) | ((uint32_t)val));
+}
 
 
 
@@ -649,7 +680,3 @@ void colorDecomposer(uint8_t destArray[], uint32_t longColor, uint8_t startIndx)
   destArray[startIndx + 3] = uint8_t (longColor & 0x000000FF);          // Wht LED
 }
 */
-
-uint8_t getAssignedScts() {
-  return assignedScts;
-}
