@@ -8,26 +8,7 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
-pixelInfo_t* ptrPxlInfo = (pixelInfo_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pixelInfo_t));
-pixelInfo_t* arrPtrPxlInfo[MAX_NO_SCTS];
-
-// Filling the neopxl Objects array
-Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_0, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_1, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_2, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_3, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_4, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_5, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_6, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_7, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_8, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT,  PIN_SCT_9, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT, PIN_SCT_10, NEO_GRBW + NEO_KHZ800),
-  Adafruit_NeoPixel(DEFAULT_LED_COUNT, PIN_SCT_11, NEO_GRBW + NEO_KHZ800),
-};
-
-// volatile pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+// volatile pixel_info_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
@@ -38,46 +19,90 @@ Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
 
 
 
-// //**********    LOCAL VARIABLES DECLARATION   ************//
+//**********    LOCAL VARIABLES DECLARATION   ************//
+
+pixel_info_t* ptrPxlInfo = (pixel_info_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pixel_info_t));
+pixel_info_t* arrPtrPxlInfo[MAX_NO_SCTS];
+
+// Filling the neopxl Objects array
+Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
+  Adafruit_NeoPixel(0,  PIN_SCT_0, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_1, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_2, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_3, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_4, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_5, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_6, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_7, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_8, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0,  PIN_SCT_9, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0, PIN_SCT_10, NEO_GRBW + NEO_KHZ800),
+  Adafruit_NeoPixel(0, PIN_SCT_11, NEO_GRBW + NEO_KHZ800),
+};
 
 // uint32_t sunColor = rgbw2wrgb(0xFFFF1400);
 
-// //**********    LOCAL VARIABLES DECLARATION   ************//
+//**********    LOCAL VARIABLES DECLARATION   ************//
+
+
+
+
+
+
+//**********    LOCAL FUNCTIONS DECLARATION   ************//
+
+void sectionsUsageUpdt();
+void pixelsUsageUpdt(uint8_t pxlsUsed);
+
+// Put in a separate lib?
+uint32_t rgbw2wrgb(uint32_t rgbwColor);
+uint32_t wrgb2rgbw(uint32_t wrgbColor);
+uint32_t rgbw2rgb(uint32_t rgbwColor);
+uint32_t rgbw2hsv(uint32_t rgbwColor);
+
+//**********    LOCAL FUNCTIONS DECLARATION   ************//
+
+
+
 
 
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
-  
-  // var to keep track of the section to instanciate and space available in heap
-  static uint8_t sctTracker = 0;
-  static uint8_t freeSpace = PXLINFO_HEAP_SIZE;
 
-  if((freeSpace - nbrOfLEDs) >= 0 && sctTracker <= (MAX_NO_SCTS - 1)) {
+  if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
+    
+    static uint8_t sectionIndex = 0;
+
     // Everything related to pxlInfo struct is done here
-    arrPtrPxlInfo[sctTracker] = ptrPxlInfo;
+    arrPtrPxlInfo[sectionIndex] = ptrPxlInfo;
     ptrPxlInfo += nbrOfLEDs;
 
     for(uint8_t pxlNbr = 0; pxlNbr < nbrOfLEDs; pxlNbr++) {
-      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlSct   = sctTracker;
-      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlNbr   = pxlNbr;
-      (arrPtrPxlInfo[sctTracker] + pxlNbr)->pxlState = IDLE;
+      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlSct   = sectionIndex;
+      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlNbr   = pxlNbr;
+      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlState = IDLE;
     }
 
     // Everything related to the neopxl object itself is done below
-    neopxlObjArr[sctTracker].updateLength((uint16_t)nbrOfLEDs);
+    neopxlObjArr[sectionIndex].updateLength((uint16_t)nbrOfLEDs);
     // needs to be done for each instanciated neopxlObj
-    neopxlObjArr[sctTracker].begin();
-    neopxlObjArr[sctTracker].setBrightness(maxBrightness);
+    neopxlObjArr[sectionIndex].begin();
+    neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
   
-    // incrementing section tracker for next pass in func and updating heap available space
-    ++sctTracker;
-    freeSpace -= nbrOfLEDs;
+    // updating sections and pixels usage
+    sectionsMgmtUpdt();
+    pixelsMgmtUpdt(nbrOfLEDs);
+    sectionIndex++;
   }
-  else {
-    Serial.println("Can't create anymore sections");
-  }
+
+  // else {
+  //   Serial.println("Can't create anymore sections");
+  // }
 }
 
+
+// This is a temporary func to change a pxl hsvTarget attr.
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
+  
   // Got to check if the pixel number asked for is part of the section
   if(pixel < neopxlObjArr[section].numPixels()) {
     (arrPtrPxlInfo[section] + pixel)->hsvTarget = whatev;
@@ -86,11 +111,6 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
     Serial.println("pixel passed is out of range");
   }
 }
-
-
-
-
-
 
 // void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctTracker, uint8_t maxBrightness, uint32_t startColor) {
 //   // loop to fill each pixel info in the array of strips

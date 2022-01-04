@@ -16,13 +16,10 @@
 
 uint16_t ramStart = 0x0200;
 
-bool sparkleTest = 0;
+bool sparkleTest = 1;
 
 serial_obj_t usbSerial;
 
-
-
-pixelInfo_t* ptrTemp;
 
 /*
 char play[5] = "play";

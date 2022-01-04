@@ -8,28 +8,7 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "Adafruit_NeoPixel.h"
 #include "Arduino.h"
 #include "User_Lib.h"
-
-#define PXLINFO_HEAP_SIZE                36
-#define PXLINFO_MAX_INDEX(_size)    (_size - 1)
-
-// maximum number of sections that are possible to instanciate w/ the Arduino Mega
-#define MAX_NO_SCTS         12
-
-// all possible PWM pins on the Mega that can be used to control the SK6812 LEDs (12 total)
-#define PIN_SCT_0            2
-#define PIN_SCT_1            3
-#define PIN_SCT_2            4
-#define PIN_SCT_3            5
-#define PIN_SCT_4            6
-#define PIN_SCT_5            7
-#define PIN_SCT_6            8
-#define PIN_SCT_7            9
-#define PIN_SCT_8           10
-#define PIN_SCT_9           11
-#define PIN_SCT_10          12
-#define PIN_SCT_11          13
-
-#define DEFAULT_LED_COUNT    6
+#include "Board.h"
 
 
 
@@ -77,7 +56,7 @@ typedef struct {
   uint32_t  hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
   uint32_t  rgbwTarget;           // registered target RGBW color for RGB_FADE or WHT_FADE actions
   uint32_t  hsvTarget;            // registered target HSV color for HSV_FADE action
-}pixelInfo_t;
+}pixel_info_t;
 
 enum activeLedAction {
   IDLE,                           // LED is ready for action
@@ -112,13 +91,13 @@ extern Adafruit_NeoPixel sct_11;
 
 
 // 2D array containing the section number (row) and each pixel of that section (column)
-// volatile extern pixelInfo_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+// volatile extern pixel_info_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 
 /*
-The old way of storing all pixelInfo_t struct instance was to declare a 2D array that was MAX_NO_SCTS X LENGTH_OF_LONGEST_SECTION.
+The old way of storing all pixel_info_t struct instance was to declare a 2D array that was MAX_NO_SCTS X LENGTH_OF_LONGEST_SECTION.
 This would mean that for sections shorter than the longest, we would have blank memory space that was wasted.
 
 Now, we dynamically allocate space in RAM (heap) of size PXLINFO_HEAP_SIZE. This returns us a pointer to the start of the heap.
@@ -126,9 +105,15 @@ Then, we declare an array of size MAX_NO_SCTS that will contain the pxlInfo poin
 Finally, as we did before, we can work with an array of Adafruit_Neopxl obj of the same size (MAX_NO_SCTS) as the array of pointers to pxlInfo struct, 
 */
 
-extern pixelInfo_t* ptrPxlInfo;
-extern pixelInfo_t* arrPtrPxlInfo[];
+extern pixel_info_t* ptrPxlInfo;
+//extern pixel_info_t* arrPtrPxlInfo[];
 //extern Adafruit_NeoPixel neopxlObjArr[];
+
+//**********    GLOBAL FUNCTIONS DECLARATION   ************//
+
+
+
+//**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
 
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness);
@@ -144,11 +129,6 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 
 // void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 // void stripOFF(uint8_t section);
-
-uint32_t rgbw2wrgb(uint32_t rgbwColor);
-uint32_t wrgb2rgbw(uint32_t wrgbColor);
-uint32_t rgbw2rgb(uint32_t rgbwColor);
-uint32_t rgbw2hsv(uint32_t rgbwColor);
 
 // void blinkOnce(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime, bool blinkState = 1); 
 // void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime);
