@@ -79,7 +79,7 @@ typedef struct {
 //**********    GLOBAL FUNC DECLARATION   ************//
 
 board_infos_t getBoardInfos();
-size_t infosBufferFill(byte byteBuffer[64]);
+uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start=0, uint8_t length=0);
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();

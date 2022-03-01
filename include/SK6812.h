@@ -116,7 +116,7 @@ extern pixel_info_t* ptrPxlInfo;
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
 
-void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness);
+void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50);
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 
 // void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);

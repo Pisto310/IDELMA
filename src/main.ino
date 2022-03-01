@@ -89,20 +89,20 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  createSection(10, brightnessLED);
-  createSection(2, brightnessLED);
-  createSection(4, brightnessLED);
-  createSection(7, brightnessLED);
-  createSection(11, brightnessLED);
-  createSection(5, brightnessLED);
-  createSection(20, brightnessLED);
+  // createSection(10, brightnessLED);
+  // createSection(2, brightnessLED);
+  // createSection(4, brightnessLED);
+  // createSection(7, brightnessLED);
+  // createSection(11, brightnessLED);
+  // createSection(5, brightnessLED);
+  // createSection(20, brightnessLED);
   // createSection(3, brightnessLED);
   // createSection(3, brightnessLED);
   // createSection(3, brightnessLED);
   // createSection(3, brightnessLED);
   // createSection(3, brightnessLED);
 
-  updatingPixelAttr(0, 8, 0xF00FA00A);
+  // updatingPixelAttr(0, 8, 0xF00FA00A);
 
   /*
   arrPtrPxlInfo[0] = ptrPxlInfo;

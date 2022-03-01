@@ -26,6 +26,8 @@ board_infos_t boardInfo = {
   }
 };
 
+byte* ptrBoardInfo = &boardInfo.sn;
+
 //**********    LOCAL VARIABLES   ************//
 
 
@@ -34,7 +36,7 @@ board_infos_t boardInfo = {
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-byte* boardInfosToArray();
+
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
@@ -50,14 +52,28 @@ board_infos_t getBoardInfos() {
 }
 
 // Fills buffer with boardInfo struct content and returns how many bytes it now contains
-size_t infosBufferFill(byte byteBuffer[64]) {
+// User can choose from where to start in the struct (for example, sending only pxlsInfo mgmt info) 
+uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start, uint8_t length) {
   
-  byte* iterArray = boardInfosToArray();
+  uint8_t maxAllowedLen = (uint8_t) BOARD_INFO_STRUCT_LEN(boardInfo);
   
-  for(uint8_t index = 0; index < BOARD_INFO_STRUCT_LEN(boardInfo); ++index) {
-    byteBuffer[index] = *(iterArray + index);
+  // if length == zero, user didn't enter a value, so set it to default using macro
+  if(!length) {
+    length = maxAllowedLen;
   }
-  return(BOARD_INFO_STRUCT_LEN(boardInfo));
+
+  // check if all parameters passed are permissible between one another
+  if(start > (maxAllowedLen - 1)) {
+    start = maxAllowedLen - 1;
+  }
+  else if((length + start) > maxAllowedLen) {
+    length = maxAllowedLen - start;
+  }
+
+  for(uint8_t index = start; index < (start + length); ++index) {
+    byteBuffer[index-start] = *(ptrBoardInfo + index * sizeof(byte));
+  }
+  return(length);
 }
 
 // returns either True of False if enough heap space is available to create the number of pixels asked for
@@ -94,21 +110,6 @@ void pixelsMgmtUpdt(uint8_t spaceFilled) {
 
 //**********    LOCAL FUNC DEFINITION   ************//
 
-byte* boardInfosToArray() {
-  
-  static byte boardInfosArray[sizeof(boardInfo)] = {
-    boardInfo.sn,
-    boardInfo.fwVersionMajor,
-    boardInfo.fwVersionMinor,
-    boardInfo.sectionsMgmt.maxAllowed,
-    boardInfo.sectionsMgmt.stillAvailable,
-    boardInfo.sectionsMgmt.currentlyUsed,
-    boardInfo.pixelsMgmt.maxAllowed,
-    boardInfo.pixelsMgmt.stillAvailable,
-    boardInfo.pixelsMgmt.currentlyUsed
-  };
 
-  return(boardInfosArray);
-}
 
 //**********    LOCAL FUNC DEFINITION   ************//

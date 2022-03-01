@@ -66,7 +66,7 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 
 
 
-void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
+void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50) {
 
   if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
     
@@ -87,7 +87,7 @@ void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
     // needs to be done for each instanciated neopxlObj
     neopxlObjArr[sectionIndex].begin();
     neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
-  
+
     // updating sections and pixels usage
     sectionsMgmtUpdt();
     pixelsMgmtUpdt(nbrOfLEDs);

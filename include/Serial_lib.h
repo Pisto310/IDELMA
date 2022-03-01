@@ -39,8 +39,6 @@ typedef enum {
 
 typedef struct {
   HardwareSerial *serialPort;
-  bool txBoardInfos = 0;
-  bool txSetupInfos = 0;
   byte buffer[64];
   uint8_t bytesInBuf;
   serial_rx_t rxStatus = SER_RX_IDLE;

@@ -56,3 +56,9 @@ uint32_t absVar(int32_t val) {
     return(val);
   }
 }
+
+uint8_t tenTimesByteMultiplier(byte initialVal) {
+  // The idea is that 10 = 8 + 2, so two left shift, one by 3 and the other by 1
+  initialVal = (uint8_t) initialVal;
+  return((initialVal << 3) + (initialVal << 1));
+}

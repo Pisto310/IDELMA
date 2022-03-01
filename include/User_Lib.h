@@ -13,5 +13,6 @@ void mcuHeartBeat(uint16_t heartBeat);
 
 byte convertAsciiToHex(char ascii);
 uint32_t absVar(int32_t val);
+uint8_t tenTimesByteMultiplier(byte initialVal);
 
 #endif
