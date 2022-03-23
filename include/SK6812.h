@@ -37,40 +37,39 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 
 
 
-
-
-// struct to store the info of each pixel
-// each struct occupies a space of 44 bytes
-typedef struct {
-  uint8_t   pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
-  uint8_t   pxlNbr;               // pixel number in the strip/neopxlObj
-  uint8_t   pxlState;             // pixel state
-  uint8_t   paddingByte;          // reserved for future use
-  int32_t   actionOneTime;        // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
-  int32_t   actionTwoTime;        // time between each step for sat (hueFade) or grn (rgbFade)
-  int32_t   actionThreeTime;      // time between each step for val (hueFade) or blu (rgbFade)
-  uint32_t  actionOneStart;       // start time for action one
-  uint32_t  actionTwoStart;       // start time for action two
-  uint32_t  actionThreeStart;     // start time for action three
-  uint32_t  rgbwColor;            // actual rgbw color of the pixel. getPixelColor() isn't precise when brightness is under 255
-  uint32_t  hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
-  uint32_t  rgbwTarget;           // registered target RGBW color for RGB_FADE or WHT_FADE actions
-  uint32_t  hsvTarget;            // registered target HSV color for HSV_FADE action
-}pixel_info_t;
-
-enum activeLedAction {
+typedef enum {
   IDLE,                           // LED is ready for action
   HSV_FADE,                       // LED is in the process of fading in HSV color space
   RGB_FADE,                       // LED is in the process of fading in RGB color space
   BLINK_ONCE,                     // LED is set to blink only once
   BLINK,                          // LED is blinking
   SPARKLE                         // LED is in the process of sparkling
-};
+}pixel_state_t;
 
+// struct to store the info of each pixel
+// each struct occupies a space of 44 bytes
+typedef struct {
+  uint8_t         pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
+  uint8_t         pxlNbr;               // pixel number in the strip/neopxlObj
+  pixel_state_t   pxlState;             // pixel state
+  uint8_t         paddingByte;          // reserved for future use
+  int32_t         actionOneTime;        // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
+  int32_t         actionTwoTime;        // time between each step for sat (hueFade) or grn (rgbFade)
+  int32_t         actionThreeTime;      // time between each step for val (hueFade) or blu (rgbFade)
+  uint32_t        actionOneStart;       // start time for action one
+  uint32_t        actionTwoStart;       // start time for action two
+  uint32_t        actionThreeStart;     // start time for action three
+  uint32_t        rgbwColor;            // actual rgbw color of the pixel. getPixelColor() isn't precise when brightness is under 255
+  uint32_t        hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
+  uint32_t        rgbwTarget;           // registered target RGBW color for RGB_FADE or WHT_FADE actions
+  uint32_t        hsvTarget;            // registered target HSV color for HSV_FADE action
+}pixel_info_t;
 
-
-
-
+// struct to store the info of a section of pixel
+typedef struct {
+  uint8_t nbrOfPxls;
+  uint8_t setBrightness;
+}section_info_t;
 
 
 //**********   SK6812 STRIPS DECLARATION   **********//
@@ -118,6 +117,11 @@ extern pixel_info_t* ptrPxlInfo;
 
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50);
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
+
+void saveSctsConfig(void);
+void stripSetupFromEeprom(void);
+
+void eepromMemCheck(void);
 
 // void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
 // void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);

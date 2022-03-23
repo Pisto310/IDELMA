@@ -5,6 +5,7 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 // My set-up, when using the object's setPixelColor method is set as a GRBW string
 
 #include "SK6812.h"
+#include <EEPROM.h>
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
@@ -40,6 +41,10 @@ Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
   Adafruit_NeoPixel(0, PIN_SCT_11, NEO_GRBW + NEO_KHZ800),
 };
 
+section_info_t sectionInfoArr[MAX_NO_SCTS];
+
+uint8_t sectionIndex = 0;
+
 // uint32_t sunColor = rgbw2wrgb(0xFFFF1400);
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
@@ -69,8 +74,6 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50) {
 
   if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
-    
-    static uint8_t sectionIndex = 0;
 
     // Everything related to pxlInfo struct is done here
     arrPtrPxlInfo[sectionIndex] = ptrPxlInfo;
@@ -84,19 +87,20 @@ void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50) {
 
     // Everything related to the neopxl object itself is done below
     neopxlObjArr[sectionIndex].updateLength((uint16_t)nbrOfLEDs);
+    
     // needs to be done for each instanciated neopxlObj
     neopxlObjArr[sectionIndex].begin();
     neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
+
+    // updating the section info matrix
+    sectionInfoArr[sectionIndex].nbrOfPxls     = nbrOfLEDs;
+    sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
 
     // updating sections and pixels usage
     sectionsMgmtUpdt();
     pixelsMgmtUpdt(nbrOfLEDs);
     sectionIndex++;
   }
-
-  // else {
-  //   Serial.println("Can't create anymore sections");
-  // }
 }
 
 
@@ -109,6 +113,87 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
   }
   else {
     Serial.println("pixel passed is out of range");
+  }
+}
+
+// Save basic sections and pixels config infos into the EEPROM's first page
+// Content to save : number of sections, number of pixels in each sections and set brightness for each section
+// Basically saving the section_info_t obj matrix
+void saveSctsConfig(void) {
+  
+  uint16_t addrTracker;
+
+  // First, we save the number of sections created at the start of the EEPROM page
+  addrTracker = eepromSave(EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE), (byte*) &sectionIndex, 1, sizeof(sectionIndex));
+  eepromSave(addrTracker, (byte*) sectionInfoArr, 1, sizeof(sectionInfoArr));
+}
+
+// Setting up the board from a saved setup config
+void stripSetupFromEeprom(void) {
+
+  uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE);
+
+  byte sctsToSetup = EEPROM.read(eepromAddr);
+
+  // Going into the loop if the first byte of the eeprom is non-zero
+  // If that is the case, it means there was a previous config save
+  if(sctsToSetup) {
+    eepromAddr += BYTE_SIZE;
+
+    while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
+      createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
+      eepromAddr += sizeof(section_info_t);
+    }
+  }
+}
+
+// void eepromPxlInfoRead(void) {
+
+//   uint16_t counter_1 = 0;
+//   uint8_t counter_2 = 0;
+
+//   // Start address of where to write to in RAM casted as a single byte pointer
+//   uint8_t *ramAddr = (uint8_t*) ptrPxlInfo;
+
+//   uint8_t  blockSize = sizeof(pixel_info_t);            // Might upgrade to uint16_t?
+//   uint8_t  numBlocks = PXLINFO_HEAP_SIZE;
+//   uint16_t numBytesToRead = blockSize * numBlocks;
+
+//   byte eepromVal;
+//   size_t unitSize = sizeof(byte);
+
+//   for(uint16_t eepromAddr = EEPROM_PXLINFO_START_ADDR; eepromAddr < (EEPROM_PXLINFO_START_ADDR + numBytesToRead); eepromAddr += unitSize) {
+    
+//     eepromVal = EEPROM.read(eepromAddr);
+
+//     if(!counter_1 && counter_2 == eepromVal) {
+//       *ramAddr = eepromVal;
+//       arrPtrPxlInfo[counter_2] = (pixel_info_t*) ramAddr;
+//       counter_2++;
+//     }
+//     else {    // case for which we're not at pixel_info_t obj first byte
+//       *ramAddr = eepromVal;
+//     }
+
+//     // section below to increment counters & ramAddr
+//     ramAddr += unitSize;
+
+//     if(counter_1 < (blockSize - 1)) {
+//       counter_1++;
+//     }
+//     else {
+//       counter_1 = 0;
+//     }
+//   }
+// }
+
+void eepromMemCheck(void) {
+  
+  uint16_t eepromStartAddr = 0;
+
+  for(uint8_t i = 0; i < 64; i++) {
+    Serial.println(EEPROM.read(eepromStartAddr), HEX);
+    eepromStartAddr += BYTE_SIZE;
   }
 }
 

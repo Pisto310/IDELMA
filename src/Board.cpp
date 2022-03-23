@@ -5,7 +5,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 */
 
 #include "Board.h"
-
+#include <EEPROM.h>
 
 
 //**********    LOCAL VARIABLES   ************//
@@ -100,6 +100,50 @@ void pixelsMgmtUpdt(uint8_t spaceFilled) {
     boardInfo.pixelsMgmt.currentlyUsed += spaceFilled;
     boardInfo.pixelsMgmt.stillAvailable -= spaceFilled;
   }
+}
+
+// Func to reset the eeprom's content
+// Note that this operation takes multiple seconds
+void eepromReset(void) {
+  for(uint16_t i = 0; i < EEPROM.length(); i++) {
+    EEPROM.write(i, 0xFF);
+  }
+}
+
+uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_t numBlocks) {
+
+  uint16_t totalBytes = blockSize * numBlocks;
+
+  for(uint16_t i = 0; i < totalBytes; i++) {
+
+    EEPROM.update(eepromAddr, *(ramAddr + (i * BYTE_SIZE)));
+    eepromAddr += BYTE_SIZE;
+
+    // Serial.print((unsigned long) (ramStartAddr + i), HEX);
+    // Serial.print(' ');
+    // Serial.print(*(ramStartAddr + i), HEX);
+    // Serial.print(' ');
+    // Serial.print(eepromStartAddr, HEX);
+    // Serial.print(' ');
+    // Serial.println(EEPROM.read(eepromStartAddr), HEX);
+  }
+  return(eepromAddr);
+}
+
+bool powerUpEepromCheck(void) {
+  
+  // Tells how many byte should be saved in eeprom 1st page according to macro values
+  // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
+  uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
+  bool configFromEeprom = 1;
+
+  for(uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
+    if(EEPROM.read(eepromAddr) == 0xFF) {
+      configFromEeprom = !configFromEeprom;
+      break;
+    }
+  }
+  return(configFromEeprom);
 }
 
 //**********    GLOBAL FUNC DEFINITION   ************//

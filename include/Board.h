@@ -8,23 +8,34 @@ Description : Everything associated to the board, from user-defined serial numbe
 #define BOARD_H_
 
 #include "Arduino.h"
+#include "SK6812.h"
 
-#define SERIAL_NUMBER           1
-#define FW_VERSION_MAJOR        0
-#define FW_VERSION_MINOR        1
+#define SERIAL_NUMBER                    1
+#define FW_VERSION_MAJOR                 0
+#define FW_VERSION_MINOR                 1
 
 #define BOARD_INFO_STRUCT_LEN(_infoStruct)    (sizeof(_infoStruct))
 
-#define SERIAL_BUFFER_SIZE      64
+#define SERIAL_BUFFER_SIZE              64
 
+#define BYTE_SIZE                  (sizeof(byte))
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
 
-#define PXLINFO_HEAP_SIZE                36
+#define PXLINFO_HEAP_SIZE               36
 #define PXLINFO_MAX_INDEX(_size)    (_size - 1)
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
 
+
+/* ------------- EEPROM SECTION ------------- */
+
+#define EEPROM_SCTS_MGMT_PAGE            0
+
+#define EEPROM_PAGE_SIZE               64U
+#define EEPROM_PAGE_ADDR(_pageNumber)       (EEPROM_PAGE_SIZE * _pageNumber)
+
+/* ------------- EEPROM SECTION ------------- */
 
 
 
@@ -85,6 +96,11 @@ bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();
 void sectionsMgmtUpdt();
 void pixelsMgmtUpdt(uint8_t spaceFilled);
+
+bool powerUpEepromCheck(void);
+
+void eepromReset(void);
+uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_t numBlocks);
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 

@@ -14,7 +14,9 @@ Description : All things serial lib source file
 enum serial_rqst{
   SER_RQST_NONE,
   SER_RQST_SEND_INFOS,
-  SER_RQST_SETUP_SCT
+  SER_RQST_SETUP_SCT,
+  SER_RQST_SAVE_SCTS_CONFIG,
+  SER_RQST_SETUP_FROM_SAVE
 };
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
@@ -138,16 +140,38 @@ void serialRqstHandler(serial_obj_t *serialObj) {
     else {
       ledCount = convertAsciiToHex(serialObj->buffer[1]);
     }
-    // creating new section with required number of LEDs
+    // creating new section with required number of LEDs then clearing buffer
     createSection(ledCount);
     serialClrBuf(serialObj);
+    serialObj->bytesInBuf = 0;
     
-    // Send an ACK through serial to show command was executed
-    serialObj->buffer[0] = 6;
-    serialObj->bytesInBuf = 1;
+    // Send the updated board infos to the PC
+    serialObj->bytesInBuf = boardInfosBufferFill(serialObj->buffer, 3, 6);
 
     serialObj->txStatus = SER_TX_RQST;
     serialObj->rxStatus = SER_RX_FRZ;
+    break;
+
+  case SER_RQST_SAVE_SCTS_CONFIG:
+    // Set-up config save in EEPROM
+    saveSctsConfig();
+
+    // clearing serial obj buffer (first) & its number of bytes attribute
+    serialClrBuf(serialObj);
+    serialObj->bytesInBuf = 0;          // Redundant since right after we fill it?
+    
+    // Send a one (1) to indicate the completion of the write operation
+    // Filling buffer and bytesInBuf attr.
+    serialObj->buffer[0] = 1;
+    serialObj->bytesInBuf = 1;
+
+    // Be sure to change state of TX Status to something other than frozen at the end
+    // Freeze RX status also tho!
+    serialObj->txStatus = SER_TX_RQST;
+    serialObj->rxStatus = SER_RX_FRZ;
+    break;
+  
+  case SER_RQST_SETUP_FROM_SAVE:
     break;
   }
 }

@@ -89,9 +89,13 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  // createSection(10, brightnessLED);
-  // createSection(2, brightnessLED);
+  if(powerUpEepromCheck()) {
+    stripSetupFromEeprom();
+  }
+  
   // createSection(4, brightnessLED);
+  // createSection(3, brightnessLED);
+  // createSection(5, brightnessLED);
   // createSection(7, brightnessLED);
   // createSection(11, brightnessLED);
   // createSection(5, brightnessLED);
@@ -102,7 +106,21 @@ void setup() {
   // createSection(3, brightnessLED);
   // createSection(3, brightnessLED);
 
-  // updatingPixelAttr(0, 8, 0xF00FA00A);
+  // eepromMemCheck();
+
+  // stripSetupFromEeprom();
+
+  // updatingPixelAttr(0, 2, 0xF00FA00A);
+  // updatingPixelAttr(1, 2, 0xF00FA00A);
+  // updatingPixelAttr(2, 2, 0xF00FA00A);
+
+  // saveConfig();
+
+  // eepromReset();
+
+  // saveSctsConfig();
+
+  // eepromPxlInfoRead();
 
   /*
   arrPtrPxlInfo[0] = ptrPxlInfo;
