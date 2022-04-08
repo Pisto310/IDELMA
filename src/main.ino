@@ -16,7 +16,7 @@
 
 uint16_t ramStart = 0x0200;
 
-bool sparkleTest = 1;
+bool sparkleTest = 0;
 
 serial_obj_t usbSerial;
 
@@ -93,9 +93,9 @@ void setup() {
     stripSetupFromEeprom();
   }
   
-  // createSection(4, brightnessLED);
-  // createSection(3, brightnessLED);
-  // createSection(5, brightnessLED);
+  createSection(3, brightnessLED);
+  createSection(12, brightnessLED);
+  createSection(9, brightnessLED);
   // createSection(7, brightnessLED);
   // createSection(11, brightnessLED);
   // createSection(5, brightnessLED);
@@ -110,9 +110,10 @@ void setup() {
 
   // stripSetupFromEeprom();
 
-  // updatingPixelAttr(0, 2, 0xF00FA00A);
-  // updatingPixelAttr(1, 2, 0xF00FA00A);
-  // updatingPixelAttr(2, 2, 0xF00FA00A);
+  updatingPixelAttr(0, 2, 0xF00FA00A);
+  updatingPixelAttr(1, 7, 0xF00FA00A);
+  updatingPixelAttr(1, 8, 0xF00FA00A);
+  updatingPixelAttr(2, 8, 0xF00FA00A);
 
   // saveConfig();
 
@@ -159,7 +160,14 @@ void setup() {
 void loop() {
 
   if(ptrPxlInfo && !sparkleTest) {
-    dumpRam(Serial, &ramStart, 8192);
+    dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
+    Serial.println("");
+    //sparkleTest = !sparkleTest;
+    resetSection(0, 6);
+  }
+
+  if(ptrPxlInfo && !sparkleTest) {
+    dumpRam(Serial, &ramStart, 2480);
     sparkleTest = !sparkleTest;
   }
   

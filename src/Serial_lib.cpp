@@ -15,8 +15,7 @@ enum serial_rqst{
   SER_RQST_NONE,
   SER_RQST_SEND_INFOS,
   SER_RQST_SETUP_SCT,
-  SER_RQST_SAVE_SCTS_CONFIG,
-  SER_RQST_SETUP_FROM_SAVE
+  SER_RQST_SAVE_SCTS_CONFIG
 };
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
@@ -113,66 +112,71 @@ void serialClrBuf(serial_obj_t *serialObj) {
 
 void serialRqstHandler(serial_obj_t *serialObj) {
 
+  //Serial.print(serialObj->buffer[0]);
+
   switch (convertAsciiToHex(serialObj->buffer[0])) {
   
   case SER_RQST_SEND_INFOS:
-    // clearing serial obj buffer (first) & its number of bytes attribute
-    serialClrBuf(serialObj);
-    serialObj->bytesInBuf = 0;          // Redundant since right after we fill it?
-    
-    // Get board infos and put them into the buffer if need to TX included in Rqst
-    serialObj->bytesInBuf = boardInfosBufferFill(serialObj->buffer);
-    
-    // Be sure to change state of TX Status to something other than frozen at the end
-    // Freeze RX status also tho!
-    serialObj->txStatus = SER_TX_RQST;
-    serialObj->rxStatus = SER_RX_FRZ;
-    break;
+    {
+      // clearing serial obj buffer (first) & its number of bytes attribute
+      serialClrBuf(serialObj);
+      serialObj->bytesInBuf = 0;          // Redundant since right after we fill it?
+      
+      // Get board infos and put them into the buffer if need to TX included in Rqst
+      serialObj->bytesInBuf = boardInfosBufferFill(serialObj->buffer);
+      
+      // Be sure to change state of TX Status to something other than frozen at the end
+      // Freeze RX status also tho!
+      serialObj->txStatus = SER_TX_RQST;
+      serialObj->rxStatus = SER_RX_FRZ;
+      break;
+    }
 
   case SER_RQST_SETUP_SCT:
-    // Do everything we need to do with content of buffer before erasing it
-    // First, we need to count how many LEDs are required in the section
-    uint8_t ledCount = 0;
-    if(serialObj->bytesInBuf > 2) {
-      ledCount = tenTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[1]));
-      ledCount += convertAsciiToHex(serialObj->buffer[2]);
-    }
-    else {
-      ledCount = convertAsciiToHex(serialObj->buffer[1]);
-    }
-    // creating new section with required number of LEDs then clearing buffer
-    createSection(ledCount);
-    serialClrBuf(serialObj);
-    serialObj->bytesInBuf = 0;
-    
-    // Send the updated board infos to the PC
-    serialObj->bytesInBuf = boardInfosBufferFill(serialObj->buffer, 3, 6);
+    {
+      // Do everything we need to do with content of buffer before erasing it
+      // First, we need to count how many LEDs are required in the section
+      uint8_t ledCount = 0;
+      if(serialObj->bytesInBuf > 2) {
+        ledCount = tenTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[1]));
+        ledCount += convertAsciiToHex(serialObj->buffer[2]);
+      }
+      else {
+        ledCount = convertAsciiToHex(serialObj->buffer[1]);
+      }
+      // creating new section with required number of LEDs then clearing buffer
+      createSection(ledCount);
+      serialClrBuf(serialObj);
+      serialObj->bytesInBuf = 0;
+      
+      // Send the updated board infos to the PC
+      serialObj->bytesInBuf = boardInfosBufferFill(serialObj->buffer, 3, 6);
 
-    serialObj->txStatus = SER_TX_RQST;
-    serialObj->rxStatus = SER_RX_FRZ;
-    break;
+      serialObj->txStatus = SER_TX_RQST;
+      serialObj->rxStatus = SER_RX_FRZ;
+      break;
+    }
 
   case SER_RQST_SAVE_SCTS_CONFIG:
-    // Set-up config save in EEPROM
-    saveSctsConfig();
+    {
+      // Set-up config save in EEPROM
+      saveSctsConfig();
 
-    // clearing serial obj buffer (first) & its number of bytes attribute
-    serialClrBuf(serialObj);
-    serialObj->bytesInBuf = 0;          // Redundant since right after we fill it?
-    
-    // Send a one (1) to indicate the completion of the write operation
-    // Filling buffer and bytesInBuf attr.
-    serialObj->buffer[0] = 1;
-    serialObj->bytesInBuf = 1;
+      // clearing serial obj buffer (first) & its number of bytes attribute
+      serialClrBuf(serialObj);
+      serialObj->bytesInBuf = 0;          // Redundant since right after we fill it?
+      
+      // Send a one (1) to indicate the completion of the write operation
+      // Filling buffer and bytesInBuf attr.
+      serialObj->buffer[0] = 1;
+      serialObj->bytesInBuf = 1;
 
-    // Be sure to change state of TX Status to something other than frozen at the end
-    // Freeze RX status also tho!
-    serialObj->txStatus = SER_TX_RQST;
-    serialObj->rxStatus = SER_RX_FRZ;
-    break;
-  
-  case SER_RQST_SETUP_FROM_SAVE:
-    break;
+      // Be sure to change state of TX Status to something other than frozen at the end
+      // Freeze RX status also tho!
+      serialObj->txStatus = SER_TX_RQST;
+      serialObj->rxStatus = SER_RX_FRZ;
+      break;
+    }
   }
 }
 

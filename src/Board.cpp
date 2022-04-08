@@ -87,7 +87,7 @@ bool remainingSctsPins() {
 }
 
 // Only called within createSection() func
-void sectionsMgmtUpdt() {
+void sectionsMgmtAdd() {
   if(boardInfo.sectionsMgmt.stillAvailable) {
     boardInfo.sectionsMgmt.currentlyUsed++;
     boardInfo.sectionsMgmt.stillAvailable--;
@@ -95,10 +95,26 @@ void sectionsMgmtUpdt() {
 }
 
 // Only called within createSection() func
-void pixelsMgmtUpdt(uint8_t spaceFilled) {
+void pixelsMgmtAdd(uint8_t spaceFilled) {
   if(boardInfo.pixelsMgmt.stillAvailable) {
     boardInfo.pixelsMgmt.currentlyUsed += spaceFilled;
     boardInfo.pixelsMgmt.stillAvailable -= spaceFilled;
+  }
+}
+
+// Only called within resetSection() and clearSection() funcs
+void sectionsMgmtRemove() {
+  if(boardInfo.sectionsMgmt.currentlyUsed) {
+    boardInfo.sectionsMgmt.currentlyUsed--;
+    boardInfo.sectionsMgmt.stillAvailable++;
+  }
+}
+
+// Only called within resetSection() and clearSection() funcs
+void pixelsMgmtRemove(uint8_t spaceFreed) {
+  if(boardInfo.pixelsMgmt.currentlyUsed && (boardInfo.pixelsMgmt.currentlyUsed - spaceFreed >= 0)) {
+    boardInfo.pixelsMgmt.currentlyUsed -= spaceFreed;
+    boardInfo.pixelsMgmt.stillAvailable += spaceFreed;
   }
 }
 

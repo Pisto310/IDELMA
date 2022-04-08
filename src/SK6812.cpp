@@ -45,8 +45,6 @@ section_info_t sectionInfoArr[MAX_NO_SCTS];
 
 uint8_t sectionIndex = 0;
 
-// uint32_t sunColor = rgbw2wrgb(0xFFFF1400);
-
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
 
@@ -56,8 +54,10 @@ uint8_t sectionIndex = 0;
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-void sectionsUsageUpdt();
-void pixelsUsageUpdt(uint8_t pxlsUsed);
+void sctReset(pixel_info_t* heapStartAddr, uint8_t section, uint8_t newNbrOfLEDs, uint16_t pxlInfoToReset = 0);
+
+void removingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs);
+void addingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs);
 
 // Put in a separate lib?
 uint32_t rgbw2wrgb(uint32_t rgbwColor);
@@ -71,7 +71,7 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 
 
 
-void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50) {
+void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
 
   if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
 
@@ -97,11 +97,38 @@ void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50) {
     sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
 
     // updating sections and pixels usage
-    sectionsMgmtUpdt();
-    pixelsMgmtUpdt(nbrOfLEDs);
+    sectionsMgmtAdd();
+    pixelsMgmtAdd(nbrOfLEDs);
     sectionIndex++;
   }
 }
+
+
+
+
+// Basically, if resetting a section, the pointer to its RAM location doesn't change, but the pointer
+// to all subsequent sections do because the user might add or remove pixels
+
+// Func to reset an already set section config
+void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness) {
+
+  if(section < sectionIndex && remainingHeapSpace(newNbrOfLEDs)) {
+
+    if(newNbrOfLEDs == sectionInfoArr[section].nbrOfPxls) {
+      // Nothing needs to be done, we can come out the func
+      // Return a var that is interpreted by the soft as, in this case, a case where no reset needs to be done
+    }
+
+    else if(newNbrOfLEDs < sectionInfoArr[section].nbrOfPxls) {
+      removingPxlsFromSct(section, newNbrOfLEDs);
+    }
+
+    else if(newNbrOfLEDs > sectionInfoArr[section].nbrOfPxls) {
+      addingPxlsFromSct(section, newNbrOfLEDs);
+    }
+  }
+}
+
 
 
 // This is a temporary func to change a pxl hsvTarget attr.
@@ -115,6 +142,10 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
     Serial.println("pixel passed is out of range");
   }
 }
+
+
+
+
 
 // Save basic sections and pixels config infos into the EEPROM's first page
 // Content to save : number of sections, number of pixels in each sections and set brightness for each section
@@ -197,30 +228,6 @@ void eepromMemCheck(void) {
   }
 }
 
-// void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctTracker, uint8_t maxBrightness, uint32_t startColor) {
-//   // loop to fill each pixel info in the array of strips
-//   for(uint8_t index = 0; index < neopxlObj.numPixels(); index++) {
-//     stripsArrayOfPxl[*ptrToSctTracker][index].pxlSct   = *ptrToSctTracker;
-//     stripsArrayOfPxl[*ptrToSctTracker][index].pxlNbr   = index;
-//     stripsArrayOfPxl[*ptrToSctTracker][index].pxlState = IDLE;
-//   }
-//   // adding the initialized Neopixel object to the array
-//   neopxlArr[*ptrToSctTracker] = neopxlObj;
-
-//   // done here since it needs to be done for each instanciated neopxlObj
-//   neopxlObj.begin();
-//   neopxlObj.setBrightness(maxBrightness);
-//   if(startColor) {
-//     stripColorFill(*ptrToSctTracker, startColor);
-//   }
-//   else {
-//     stripOFF(*ptrToSctTracker);
-//   }
-  
-//   // increment the section count after every function call
-//   ++*ptrToSctTracker;
-// }
-
 // // func that takes care of handling the next color value for fade actions (HSV or RGB)
 // void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr) {
 //   if(*actionTime & 0x80000000) {
@@ -251,73 +258,8 @@ void eepromMemCheck(void) {
 
 
 
-
-// // //******   PIXEL ACTIONS SECTION   ******//
-
-
-
-// // Function that can be called to update either one of the color attribute of a pixel
-// // If the HSV color format is passed, the associated bool should be passed as True
-// // Func updates the actual color attr by default. For updating the target color attr, bool should be passed as True
-// void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat, bool targetUpdt) {
-//   if(hsvFormat) {
-
-//     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
-//     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
-//     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
-
-//     if(targetUpdt) {
-//       stripsArrayOfPxl[section][pixel].rgbwTarget = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
-//       stripsArrayOfPxl[section][pixel].hsvTarget = color;
-//     }
-//     else {
-//       stripsArrayOfPxl[section][pixel].rgbwColor = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
-//       stripsArrayOfPxl[section][pixel].hsvColor = color;
-//     }
-//   }
-
-//   else {
-//     if(targetUpdt) {
-//       stripsArrayOfPxl[section][pixel].rgbwTarget = color;
-//       stripsArrayOfPxl[section][pixel].hsvTarget = rgbw2hsv(color);
-//     }
-//     else {
-//       stripsArrayOfPxl[section][pixel].rgbwColor = color;
-//       stripsArrayOfPxl[section][pixel].hsvColor = rgbw2hsv(color);
-//     }
-//   }
-// }
-
-// // simple function to output a chosen color to a pixel
-// // color can be of either HSV or RGB format
-// // gamma32 correction is applied on the color outputted to the strip
-// void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat) {
-//   if(hsvFormat) {
-    
-//     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
-//     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
-//     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
-
-//     pxlColorUpdt(section, pixel, color, hsvFormat);
-//     neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
-//     neopxlObjArr[section].show();
-//   }
-//   else {
-//     pxlColorUpdt(section, pixel, color);
-//     neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
-//     neopxlObjArr[section].show();
-//   }
-// }
-
-// // turn off a single pixel
-// void pxlOFF(uint8_t section, uint8_t pixel) {
-//   pxlColorUpdt(section, pixel, 0x00000000);
-//   neopxlObjArr[section].setPixelColor(pixel, 0x00000000);
-//   neopxlObjArr[section].show();
-// }
-
-// void pxlIterator(uint8_t sctCount) {
-//   for(uint8_t section = 0; section < sctCount; section++) {
+// void pxlIterator(uint8_t sectionIndex) {
+//   for(uint8_t section = 0; section < sectionIndex; section++) {
 //     for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
 //       switch (stripsArrayOfPxl[section][pixel].pxlState) {
 //       case HSV_FADE:
@@ -360,6 +302,74 @@ void eepromMemCheck(void) {
 
 
 
+
+
+// // //******   PIXEL ACTIONS SECTION   ******//
+
+
+
+// Function that can be called to update either one of the color attribute of a pixel
+// If the HSV color format is passed, the associated bool should be passed as True
+// Func updates the actual color attr by default. For updating the target color attr, bool should be passed as True
+void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat, bool targetUpdt) {
+  
+  if(hsvFormat) {
+    uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
+    uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
+    uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
+
+    if(targetUpdt) {
+      (arrPtrPxlInfo[section] + pixel)->rgbwTarget = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
+      (arrPtrPxlInfo[section] + pixel)->hsvTarget = color;
+    }
+    else {
+      (arrPtrPxlInfo[section] + pixel)->rgbwColor = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
+      (arrPtrPxlInfo[section] + pixel)->hsvColor = color;
+    }
+  }
+
+  else {
+    if(targetUpdt) {
+      (arrPtrPxlInfo[section] + pixel)->rgbwTarget = color;
+      (arrPtrPxlInfo[section] + pixel)->hsvTarget = rgbw2hsv(color);
+    }
+    else {
+      (arrPtrPxlInfo[section] + pixel)->rgbwColor = color;
+      (arrPtrPxlInfo[section] + pixel)->hsvColor = rgbw2hsv(color);
+    }
+  }
+}
+
+// simple function to output a chosen color to a pixel
+// color can be of either HSV or RGB format
+// gamma32 correction is applied on the color outputted to the strip
+void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat) {
+  if(hsvFormat) {
+    
+    uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
+    uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
+    uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
+
+    pxlColorUpdt(section, pixel, color, hsvFormat);
+    neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
+    neopxlObjArr[section].show();
+  }
+  else {
+    pxlColorUpdt(section, pixel, color);
+    neopxlObjArr[section].setPixelColor(pixel, neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
+    neopxlObjArr[section].show();
+  }
+}
+
+// turn off a single pixel
+void pxlOFF(uint8_t section, uint8_t pixel) {
+  pxlColorUpdt(section, pixel, 0x00000000);
+  neopxlObjArr[section].setPixelColor(pixel, 0x00000000);
+  neopxlObjArr[section].show();
+}
+
+
+
 // //******   PIXEL ACTIONS SECTION   ******//
 
 
@@ -374,38 +384,38 @@ void eepromMemCheck(void) {
 // //******   STRIP ACTIONS SECTION   ******//
 
 
-// // lights a whole strip with the color passed as input
-// // gamma32 correction is applied on the color outputted to the strip
-// void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
-//   if(hsvFormat) {
+// lights a whole strip with the color passed as input
+// gamma32 correction is applied on the color outputted to the strip
+void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
+  if(hsvFormat) {
     
-//     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
-//     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
-//     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
+    uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
+    uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
+    uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
     
-//     for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
-//       pxlColorUpdt(section, pixel, color, hsvFormat);
-//     }
-//     neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
-//     neopxlObjArr[section].show();
-//   }
-//   else {
-//     for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
-//       pxlColorUpdt(section, pixel, color);
-//     }
-//     neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
-//     neopxlObjArr[section].show();
-//   }
-// }
+    for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+      pxlColorUpdt(section, pixel, color, hsvFormat);
+    }
+    neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
+    neopxlObjArr[section].show();
+  }
+  else {
+    for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+      pxlColorUpdt(section, pixel, color);
+    }
+    neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
+    neopxlObjArr[section].show();
+  }
+}
 
-// // turn OFF all LEDs in a given strip (section)
-// void stripOFF(uint8_t section) {
-//   for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
-//       pxlColorUpdt(section, pixel, 0x00000000);
-//   }
-//   neopxlObjArr[section].clear();
-//   neopxlObjArr[section].show();  
-// }
+// turn OFF all LEDs in a given strip (section)
+void stripOFF(uint8_t section) {
+  for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+      pxlColorUpdt(section, pixel, 0x00000000);
+  }
+  neopxlObjArr[section].clear();
+  neopxlObjArr[section].show();  
+}
 
 
 // //******   STRIP ACTIONS SECTION   ******//
@@ -768,7 +778,93 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 //********    LED SCENES SECTION    ********//
 
 
+//***********    LOCAL FUNCS DEFINITION    ***********//
 
+void removingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs) {
+  
+  uint8_t  freedHeapBlocks = sectionInfoArr[section].nbrOfPxls - newNbrOfLEDs;     // Expressed in terms of a number of pixel_info_t OBJ
+  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
+
+  byte *heapEraseAddr           = (byte*)ptrPxlInfo - freedHeapBytes;
+  byte *heapOverWriteDestAddr   = (byte*)(arrPtrPxlInfo[section] + newNbrOfLEDs);
+  byte *heapOverWriteSourceAddr = (byte*)(arrPtrPxlInfo[section] + newNbrOfLEDs) + freedHeapBytes;
+
+  uint8_t pxlInfoToShift = 0;
+
+  ptrPxlInfo = (pixel_info_t*)heapEraseAddr;
+
+  // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
+  // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
+  for(uint8_t i = section + 1; i < sectionIndex; i++) {
+    pxlInfoToShift += sectionInfoArr[i].nbrOfPxls;
+    arrPtrPxlInfo[i] -= freedHeapBlocks;
+  }
+  uint16_t bytesToShift = pxlInfoToShift * sizeof(pixel_info_t) * BYTE_SIZE;
+
+  // This where the overwriting is done
+  while(bytesToShift) {
+    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
+    if(heapOverWriteSourceAddr == heapEraseAddr) {
+      *heapEraseAddr = 0x00;
+      heapEraseAddr += BYTE_SIZE;
+    }
+    heapOverWriteDestAddr += BYTE_SIZE;
+    heapOverWriteSourceAddr += BYTE_SIZE;
+    bytesToShift--;
+  }
+
+  // Updating length of neopixel Obj, section info matrix & board infos
+  neopxlObjArr[section].updateLength((uint16_t)newNbrOfLEDs);
+  pixelsMgmtRemove(sectionInfoArr[section].nbrOfPxls - newNbrOfLEDs);
+  sectionInfoArr[section].nbrOfPxls = newNbrOfLEDs;
+}
+
+void addingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs) {
+
+  uint8_t  toBeUsedHeapBlocks = newNbrOfLEDs - sectionInfoArr[section].nbrOfPxls;             // Expressed in terms of a number of pixel_info_t OBJ
+  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
+
+  byte *heapOverWriteDestAddr   = (byte*)ptrPxlInfo + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
+  byte *heapOverWriteSourceAddr = (byte*)ptrPxlInfo - BYTE_SIZE;                              // Last addr where there is actual info
+  byte *heapMemClearAddr        = (byte*)(arrPtrPxlInfo[section] + newNbrOfLEDs) - BYTE_SIZE; // First addr where to erase the bytes to make room
+
+  uint8_t pxlInfoToShift = 0;
+
+  ptrPxlInfo = (pixel_info_t*)heapOverWriteDestAddr + BYTE_SIZE;
+
+  // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
+  for(uint8_t i = section + 1; i < sectionIndex; i++) {
+    pxlInfoToShift += sectionInfoArr[i].nbrOfPxls;
+    arrPtrPxlInfo[i] += toBeUsedHeapBlocks;
+  }
+  uint16_t bytesToShift = pxlInfoToShift * sizeof(pixel_info_t) * BYTE_SIZE;
+
+  // This where the overwriting is done
+  while(bytesToShift) {
+    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
+    if(heapOverWriteSourceAddr == heapMemClearAddr) {
+      *heapMemClearAddr = 0x00;
+      heapMemClearAddr -= BYTE_SIZE;
+    }
+    heapOverWriteDestAddr -= BYTE_SIZE;
+    heapOverWriteSourceAddr -= BYTE_SIZE;
+    bytesToShift--;
+  }
+
+  // Updating the pixel info array with the newly created LEDs
+  for(uint8_t pxlNbr = sectionInfoArr[section].nbrOfPxls; pxlNbr < newNbrOfLEDs; pxlNbr++) {
+      (arrPtrPxlInfo[section] + pxlNbr)->pxlSct   = section;
+      (arrPtrPxlInfo[section] + pxlNbr)->pxlNbr   = pxlNbr;
+      (arrPtrPxlInfo[section] + pxlNbr)->pxlState = IDLE;
+  }
+
+  // Updating length of neopixel Obj, section info matrix & board infos
+  neopxlObjArr[section].updateLength((uint16_t)newNbrOfLEDs);
+  pixelsMgmtAdd(newNbrOfLEDs - sectionInfoArr[section].nbrOfPxls);
+  sectionInfoArr[section].nbrOfPxls = newNbrOfLEDs;
+}
+
+//***********    LOCAL FUNCS DEFINITION    ***********//
 
 
 /*

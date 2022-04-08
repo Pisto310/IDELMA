@@ -94,8 +94,10 @@ uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start=0, uint8_t lengt
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();
-void sectionsMgmtUpdt();
-void pixelsMgmtUpdt(uint8_t spaceFilled);
+void sectionsMgmtAdd();
+void pixelsMgmtAdd(uint8_t spaceFilled);
+void sectionsMgmtRemove();
+void pixelsMgmtRemove(uint8_t spaceFreed);
 
 bool powerUpEepromCheck(void);
 

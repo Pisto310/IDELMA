@@ -11,32 +11,6 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "Board.h"
 
 
-
-
-//******** Will be removed later ********//
-
-/*
-// sections count, to be adjusted for each project
-#define SCT_COUNT           8
-
-// number of LEDs in most crowded section, to be adjusted for each project
-#define LED_COUNT_MAX       6
-
-// macros for nb of LEDs in each zone, variable from prj to prj
-#define LED_COUNT_SCT_0     6
-#define LED_COUNT_SCT_1     6
-#define LED_COUNT_SCT_2     6
-#define LED_COUNT_SCT_3     6
-#define LED_COUNT_SCT_4     6
-#define LED_COUNT_SCT_5     6
-#define LED_COUNT_SCT_6     6
-#define LED_COUNT_SCT_7     6
-*/
-
-//******** Will be removed later ********//
-
-
-
 typedef enum {
   IDLE,                           // LED is ready for action
   HSV_FADE,                       // LED is in the process of fading in HSV color space
@@ -52,7 +26,6 @@ typedef struct {
   uint8_t         pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t         pxlNbr;               // pixel number in the strip/neopxlObj
   pixel_state_t   pxlState;             // pixel state
-  uint8_t         paddingByte;          // reserved for future use
   int32_t         actionOneTime;        // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
   int32_t         actionTwoTime;        // time between each step for sat (hueFade) or grn (rgbFade)
   int32_t         actionThreeTime;      // time between each step for val (hueFade) or blu (rgbFade)
@@ -116,6 +89,7 @@ extern pixel_info_t* ptrPxlInfo;
 
 
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50);
+void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness = 50);
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 
 void saveSctsConfig(void);
@@ -126,13 +100,14 @@ void eepromMemCheck(void);
 // void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
 // void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);
 
-// void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0, bool targetUpdt = 0);
-// void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0);
-// void pxlOFF(uint8_t section, uint8_t pixel);
 // void pxlIterator(uint8_t sctCount);
 
-// void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
-// void stripOFF(uint8_t section);
+void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0, bool targetUpdt = 0);
+void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0);
+void pxlOFF(uint8_t section, uint8_t pixel);
+
+void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
+void stripOFF(uint8_t section);
 
 // void blinkOnce(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime, bool blinkState = 1); 
 // void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime);
