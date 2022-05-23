@@ -22,7 +22,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
 
-#define PXLINFO_HEAP_SIZE               36
+#define PXLINFO_HEAP_SIZE               50
 #define PXLINFO_MAX_INDEX(_size)    (_size - 1)
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
@@ -99,7 +99,7 @@ void pixelsMgmtAdd(uint8_t spaceFilled);
 void sectionsMgmtRemove();
 void pixelsMgmtRemove(uint8_t spaceFreed);
 
-bool powerUpEepromCheck(void);
+bool eepromBootSaveCheck(void);
 
 void eepromReset(void);
 uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_t numBlocks);

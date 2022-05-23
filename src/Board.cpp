@@ -71,8 +71,9 @@ uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start, uint8_t length)
   }
 
   for(uint8_t index = start; index < (start + length); ++index) {
-    byteBuffer[index-start] = *(ptrBoardInfo + index * sizeof(byte));
+    byteBuffer[index-start] = *(ptrBoardInfo + index * BYTE_SIZE);
   }
+
   return(length);
 }
 
@@ -118,6 +119,22 @@ void pixelsMgmtRemove(uint8_t spaceFreed) {
   }
 }
 
+bool eepromBootSaveCheck(void) {
+  
+  // Tells how many byte should be saved in eeprom 1st page according to macro values
+  // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
+  uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
+  bool configFromEeprom = 1;
+
+  for(uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
+    if(EEPROM.read(eepromAddr) > MAX_NO_SCTS || EEPROM.read(eepromAddr) == 0) {
+      configFromEeprom = !configFromEeprom;
+      break;
+    }
+  }
+  return(configFromEeprom);
+}
+
 // Func to reset the eeprom's content
 // Note that this operation takes multiple seconds
 void eepromReset(void) {
@@ -144,22 +161,6 @@ uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_
     // Serial.println(EEPROM.read(eepromStartAddr), HEX);
   }
   return(eepromAddr);
-}
-
-bool powerUpEepromCheck(void) {
-  
-  // Tells how many byte should be saved in eeprom 1st page according to macro values
-  // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
-  uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
-  bool configFromEeprom = 1;
-
-  for(uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
-    if(EEPROM.read(eepromAddr) == 0xFF) {
-      configFromEeprom = !configFromEeprom;
-      break;
-    }
-  }
-  return(configFromEeprom);
 }
 
 //**********    GLOBAL FUNC DEFINITION   ************//

@@ -16,7 +16,7 @@
 
 uint16_t ramStart = 0x0200;
 
-bool sparkleTest = 0;
+bool sparkleTest = 1;
 
 serial_obj_t usbSerial;
 
@@ -61,9 +61,9 @@ uint8_t serialTestPxl = 0;
 //************    TEST VAR DECLARATIOIN     **************
 
 
-uint16_t heartBeat = 1000;                  // in milliseconds
+uint16_t heartBeat = 500;                  // in milliseconds
 
-uint8_t brightnessLED = 50;
+uint8_t brightnessLED = 255;
 
 
 void setup() {
@@ -89,31 +89,22 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  if(powerUpEepromCheck()) {
-    stripSetupFromEeprom();
+  if(eepromBootSaveCheck()) {
+    setupFromEepromSave();
   }
   
-  createSection(3, brightnessLED);
-  createSection(12, brightnessLED);
-  createSection(9, brightnessLED);
-  // createSection(7, brightnessLED);
-  // createSection(11, brightnessLED);
-  // createSection(5, brightnessLED);
-  // createSection(20, brightnessLED);
-  // createSection(3, brightnessLED);
-  // createSection(3, brightnessLED);
-  // createSection(3, brightnessLED);
-  // createSection(3, brightnessLED);
-  // createSection(3, brightnessLED);
+  createSection(6, brightnessLED);
+  createSection(6, brightnessLED);
+  createSection(6, brightnessLED);
+  createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
 
   // eepromMemCheck();
 
   // stripSetupFromEeprom();
-
-  updatingPixelAttr(0, 2, 0xF00FA00A);
-  updatingPixelAttr(1, 7, 0xF00FA00A);
-  updatingPixelAttr(1, 8, 0xF00FA00A);
-  updatingPixelAttr(2, 8, 0xF00FA00A);
 
   // saveConfig();
 
@@ -122,30 +113,6 @@ void setup() {
   // saveSctsConfig();
 
   // eepromPxlInfoRead();
-
-  /*
-  arrPtrPxlInfo[0] = ptrPxlInfo;
-  arrPtrPxlInfo[1] = (arrPtrPxlInfo[0] + 3);
-  arrPtrPxlInfo[2] = ptrPxlInfo + 6;
-  arrPtrPxlInfo[3] = ptrPxlInfo + 9;
-  arrPtrPxlInfo[4] = ptrPxlInfo + 12;
-  arrPtrPxlInfo[5] = ptrPxlInfo + 15;
-  arrPtrPxlInfo[6] = ptrPxlInfo + 18;
-  arrPtrPxlInfo[7] = ptrPxlInfo + 21;
-  arrPtrPxlInfo[8] = ptrPxlInfo + 24;
-  arrPtrPxlInfo[9] = ptrPxlInfo + 27;
-  arrPtrPxlInfo[10]= ptrPxlInfo + 30;
-  arrPtrPxlInfo[11]= ptrPxlInfo + 33;
-
-  (arrPtrPxlInfo[1] + 1)->pxlSct = 0xD4;
-  (arrPtrPxlInfo[1] + 1)->hsvTarget = 0xF00FA00A;
-
-  arrPtrPxlInfo[0]->pxlSct = 0xD4;
-  arrPtrPxlInfo[0]->hsvTarget = 0xF00FA00A;
-
-  arrPtrPxlInfo[11]->pxlSct = 0xD7;
-  arrPtrPxlInfo[11]->hsvTarget = 0xF00FA00A;
-  */
 
   //*************   STRIP AND LEDS SET-UP   *************//
   
@@ -161,13 +128,6 @@ void loop() {
 
   if(ptrPxlInfo && !sparkleTest) {
     dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
-    Serial.println("");
-    //sparkleTest = !sparkleTest;
-    resetSection(0, 6);
-  }
-
-  if(ptrPxlInfo && !sparkleTest) {
-    dumpRam(Serial, &ramStart, 2480);
     sparkleTest = !sparkleTest;
   }
   
@@ -180,6 +140,8 @@ void loop() {
   
   serialRxCheck(&usbSerial);
   serialTxCheck(&usbSerial);
+
+  pixelActionsHandler();
   
   // if(Serial.available()) {
   //   serialRxRead(&usbSerial);

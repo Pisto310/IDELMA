@@ -17,9 +17,6 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 
 
-
-
-
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
 pixel_info_t* ptrPxlInfo = (pixel_info_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pixel_info_t));
@@ -70,7 +67,6 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 
 
 
-
 void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
 
   if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
@@ -91,6 +87,7 @@ void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
     // needs to be done for each instanciated neopxlObj
     neopxlObjArr[sectionIndex].begin();
     neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
+    stripOFF(sectionIndex);
 
     // updating the section info matrix
     sectionInfoArr[sectionIndex].nbrOfPxls     = nbrOfLEDs;
@@ -130,6 +127,20 @@ void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness) 
 }
 
 
+uint8_t sectionInfoArrSerial(byte byteBuffer[64]) {
+
+  uint8_t sctInfoTypeSize = sizeof(section_info_t);
+  uint8_t sctInfoArrLen = sectionIndex;
+  byte* ptrSctInfoArr = (byte*) sectionInfoArr;
+
+  for(uint8_t i = 0; i < sctInfoArrLen; i++) {
+    for(uint8_t j = 0; j < sctInfoTypeSize; j++) {
+      byteBuffer[(sctInfoTypeSize * i) + j] = *(ptrSctInfoArr + i * j);
+    }
+  }
+  return(sctInfoArrLen * sctInfoTypeSize);
+}
+
 
 // This is a temporary func to change a pxl hsvTarget attr.
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
@@ -144,13 +155,10 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
 }
 
 
-
-
-
 // Save basic sections and pixels config infos into the EEPROM's first page
 // Content to save : number of sections, number of pixels in each sections and set brightness for each section
 // Basically saving the section_info_t obj matrix
-void saveSctsConfig(void) {
+void setupSaveToEeprom(void) {
   
   uint16_t addrTracker;
 
@@ -160,21 +168,16 @@ void saveSctsConfig(void) {
 }
 
 // Setting up the board from a saved setup config
-void stripSetupFromEeprom(void) {
+void setupFromEepromSave(void) {
 
   uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE);
-
   byte sctsToSetup = EEPROM.read(eepromAddr);
 
-  // Going into the loop if the first byte of the eeprom is non-zero
-  // If that is the case, it means there was a previous config save
-  if(sctsToSetup) {
-    eepromAddr += BYTE_SIZE;
+  eepromAddr += BYTE_SIZE;
 
-    while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
-      createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
-      eepromAddr += sizeof(section_info_t);
-    }
+  while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
+    createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
+    eepromAddr += sizeof(section_info_t);
   }
 }
 
@@ -254,6 +257,18 @@ void eepromMemCheck(void) {
 
 
 
+void pixelActionsHandler(void) {
+  for(uint8_t sct = 0; sct < sectionIndex; sct++) {
+    for(uint8_t pxl = 0; pxl < sectionInfoArr[sct].nbrOfPxls; pxl++) {
+      switch ((arrPtrPxlInfo[sct] + pxl)->pxlState) {
+      
+      default:
+        // FSM comes here if the pixel state is IDLE
+        break;
+      }
+    }
+  }
+}
 
 
 
@@ -304,9 +319,22 @@ void eepromMemCheck(void) {
 
 
 
-// // //******   PIXEL ACTIONS SECTION   ******//
+//******   PIXEL ACTIONS SECTION   ******//
+
+// All functions to modify properties of a pixel (pixel_info)
 
 
+void pxlStateUpdt(uint8_t section, uint8_t pixel, pixel_state_t state) {
+  // First, maybe check if I have to reset the ongoing action times
+  if((arrPtrPxlInfo[section] + pixel)->pxlActionStart.actionOneStart) {
+    
+    // func to erase action thingies
+
+  }
+  
+  // changing state
+  (arrPtrPxlInfo[section] + pixel)->pxlState = state;
+}
 
 // Function that can be called to update either one of the color attribute of a pixel
 // If the HSV color format is passed, the associated bool should be passed as True
@@ -344,8 +372,8 @@ void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat
 // color can be of either HSV or RGB format
 // gamma32 correction is applied on the color outputted to the strip
 void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat) {
+  
   if(hsvFormat) {
-    
     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
@@ -772,8 +800,6 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 //     stripsArrayOfPxl[section][nextSparklePxl].pxlState = SPARKLE;
 //   }
 // }
-
-
 
 //********    LED SCENES SECTION    ********//
 
