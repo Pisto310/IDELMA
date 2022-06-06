@@ -10,9 +10,11 @@ Description : Everything associated to the board, from user-defined serial numbe
 #include "Arduino.h"
 #include "SK6812.h"
 
-#define SERIAL_NUMBER                    1
+#define SERIAL_NUMBER                    0x12345678U
+
 #define FW_VERSION_MAJOR                 0
 #define FW_VERSION_MINOR                 1
+#define FW_VERSION_PATCH                 0
 
 #define BOARD_INFO_STRUCT_LEN(_infoStruct)    (sizeof(_infoStruct))
 
@@ -22,7 +24,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
 
-#define PXLINFO_HEAP_SIZE               50
+#define PXLINFO_HEAP_SIZE               100
 #define PXLINFO_MAX_INDEX(_size)    (_size - 1)
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
@@ -64,6 +66,25 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 //**********    GLOBAL TYPES DECLARATION   ************//
 
+typedef struct FW_Version {
+  byte majorNum;
+  byte minorNum;
+  byte patchNum;
+}firmware_t;
+
+typedef struct MutableBrdInfo {
+  byte capacity;
+  byte remaining;
+  byte assigned;
+}mutable_brdInfo_t;
+
+typedef struct BoardInfosPtrs {
+  const uint32_t*    serialNumPtr;
+  const firmware_t*  fw_versionPtr;
+  mutable_brdInfo_t* sectionsInfoPtr;
+  mutable_brdInfo_t* pixelsInfoPtr;
+}board_infos_ptrs_t;
+
 typedef struct {
   byte maxAllowed;             // maximum numbers of sections allowed, defined by a macro & limited by usable pins on MCU
   byte stillAvailable;         // shows how many sections (pins) are still available
@@ -76,21 +97,12 @@ typedef struct {
   byte currentlyUsed;          // keeps track of the blocks of heap used to store pixelInfo_t objects
 }pixels_usage_t;
 
-typedef struct {
-  byte sn;
-  byte fwVersionMajor;
-  byte fwVersionMinor;
-  sections_usage_t sectionsMgmt;
-  pixels_usage_t pixelsMgmt;
-}board_infos_t;
-
 //**********    GLOBAL TYPES DECLARATION   ************//
 
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 
-board_infos_t getBoardInfos();
-uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start=0, uint8_t length=0);
+board_infos_ptrs_t getBoardInfosPtrs(void);
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();

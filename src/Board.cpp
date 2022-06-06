@@ -5,28 +5,55 @@ Description : Everything associated to the board, from user-defined serial numbe
 */
 
 #include "Board.h"
+#include "User_Lib.h"
 #include <EEPROM.h>
-
 
 //**********    LOCAL VARIABLES   ************//
 
-board_infos_t boardInfo = {
-  .sn = SERIAL_NUMBER,
-  .fwVersionMajor = FW_VERSION_MAJOR,
-  .fwVersionMinor = FW_VERSION_MINOR,
-  .sectionsMgmt = {
-    .maxAllowed     = MAX_NO_SCTS,
-    .stillAvailable = MAX_NO_SCTS,
-    .currentlyUsed  = 0
-  },
-  .pixelsMgmt = {
-    .maxAllowed     = PXLINFO_HEAP_SIZE,
-    .stillAvailable = PXLINFO_HEAP_SIZE,
-    .currentlyUsed  = 0
-  }
+// board_infos_t boardInfo = {
+//   .sn = SERIAL_NUMBER,
+//   .fwVersionMajor = FW_VERSION_MAJOR,
+//   .fwVersionMinor = FW_VERSION_MINOR,
+//   .sectionsMgmt = {
+//     .maxAllowed     = MAX_NO_SCTS,
+//     .stillAvailable = MAX_NO_SCTS,
+//     .currentlyUsed  = 0
+//   },
+//   .pixelsMgmt = {
+//     .maxAllowed     = PXLINFO_HEAP_SIZE,
+//     .stillAvailable = PXLINFO_HEAP_SIZE,
+//     .currentlyUsed  = 0
+//   }
+// };
+
+// byte* ptrBoardInfo = &boardInfo.sn;
+
+const uint32_t sn = SERIAL_NUMBER;
+
+const firmware_t fwVersion = {
+  .majorNum = FW_VERSION_MAJOR,
+  .minorNum = FW_VERSION_MINOR,
+  .patchNum = FW_VERSION_PATCH
 };
 
-byte* ptrBoardInfo = &boardInfo.sn;
+mutable_brdInfo_t sectionsInfo = {
+  .capacity = MAX_NO_SCTS,
+  .remaining = MAX_NO_SCTS,
+  .assigned = 0
+};
+
+mutable_brdInfo_t pixelsInfo = {
+  .capacity = PXLINFO_HEAP_SIZE,
+  .remaining = PXLINFO_HEAP_SIZE,
+  .assigned = 0
+};
+
+board_infos_ptrs_t boardInfos = {
+  .serialNumPtr = &sn,
+  .fw_versionPtr = &fwVersion,
+  .sectionsInfoPtr = &sectionsInfo,
+  .pixelsInfoPtr = &pixelsInfo
+};
 
 //**********    LOCAL VARIABLES   ************//
 
@@ -47,75 +74,49 @@ byte* ptrBoardInfo = &boardInfo.sn;
 
 //**********    GLOBAL FUNC DEFINITION   ************//
 
-board_infos_t getBoardInfos() {
-  return boardInfo;
-}
-
-// Fills buffer with boardInfo struct content and returns how many bytes it now contains
-// User can choose from where to start in the struct (for example, sending only pxlsInfo mgmt info) 
-uint8_t boardInfosBufferFill(byte byteBuffer[64], uint8_t start, uint8_t length) {
-  
-  uint8_t maxAllowedLen = (uint8_t) BOARD_INFO_STRUCT_LEN(boardInfo);
-  
-  // if length == zero, user didn't enter a value, so set it to default using macro
-  if(!length) {
-    length = maxAllowedLen;
-  }
-
-  // check if all parameters passed are permissible between one another
-  if(start > (maxAllowedLen - 1)) {
-    start = maxAllowedLen - 1;
-  }
-  else if((length + start) > maxAllowedLen) {
-    length = maxAllowedLen - start;
-  }
-
-  for(uint8_t index = start; index < (start + length); ++index) {
-    byteBuffer[index-start] = *(ptrBoardInfo + index * BYTE_SIZE);
-  }
-
-  return(length);
+board_infos_ptrs_t getBoardInfosPtrs(void) {
+  return boardInfos;
 }
 
 // returns either True of False if enough heap space is available to create the number of pixels asked for
 bool remainingHeapSpace(uint8_t spaceNeeded) {
-  return(boardInfo.pixelsMgmt.stillAvailable >= spaceNeeded);
+  return(pixelsInfo.remaining >= spaceNeeded);
 }
 
 // returns True or False depending if pins are still available to create anymore sections
 bool remainingSctsPins() {
-  return(boardInfo.sectionsMgmt.currentlyUsed < boardInfo.sectionsMgmt.maxAllowed);
+  return(sectionsInfo.assigned < sectionsInfo.capacity);
 }
 
 // Only called within createSection() func
 void sectionsMgmtAdd() {
-  if(boardInfo.sectionsMgmt.stillAvailable) {
-    boardInfo.sectionsMgmt.currentlyUsed++;
-    boardInfo.sectionsMgmt.stillAvailable--;
+  if(sectionsInfo.remaining) {
+    sectionsInfo.assigned++;
+    sectionsInfo.remaining--;
   }
 }
 
 // Only called within createSection() func
 void pixelsMgmtAdd(uint8_t spaceFilled) {
-  if(boardInfo.pixelsMgmt.stillAvailable) {
-    boardInfo.pixelsMgmt.currentlyUsed += spaceFilled;
-    boardInfo.pixelsMgmt.stillAvailable -= spaceFilled;
+  if(pixelsInfo.remaining) {
+    pixelsInfo.assigned += spaceFilled;
+    pixelsInfo.remaining -= spaceFilled;
   }
 }
 
 // Only called within resetSection() and clearSection() funcs
 void sectionsMgmtRemove() {
-  if(boardInfo.sectionsMgmt.currentlyUsed) {
-    boardInfo.sectionsMgmt.currentlyUsed--;
-    boardInfo.sectionsMgmt.stillAvailable++;
+  if(sectionsInfo.assigned) {
+    sectionsInfo.assigned--;
+    sectionsInfo.remaining++;
   }
 }
 
 // Only called within resetSection() and clearSection() funcs
 void pixelsMgmtRemove(uint8_t spaceFreed) {
-  if(boardInfo.pixelsMgmt.currentlyUsed && (boardInfo.pixelsMgmt.currentlyUsed - spaceFreed >= 0)) {
-    boardInfo.pixelsMgmt.currentlyUsed -= spaceFreed;
-    boardInfo.pixelsMgmt.stillAvailable += spaceFreed;
+  if(pixelsInfo.assigned && (pixelsInfo.assigned - spaceFreed >= 0)) {
+    pixelsInfo.assigned -= spaceFreed;
+    pixelsInfo.remaining += spaceFreed;
   }
 }
 

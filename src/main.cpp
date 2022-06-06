@@ -89,19 +89,19 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  if(eepromBootSaveCheck()) {
-    setupFromEepromSave();
-  }
+  // if(eepromBootSaveCheck()) {
+  //   setupFromEepromSave();
+  // }
   
-  createSection(6, brightnessLED);
-  createSection(6, brightnessLED);
-  createSection(6, brightnessLED);
-  createSection(6, brightnessLED);
   // createSection(6, brightnessLED);
   // createSection(6, brightnessLED);
   // createSection(6, brightnessLED);
   // createSection(6, brightnessLED);
-
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
+  // createSection(6, brightnessLED);
   // eepromMemCheck();
 
   // stripSetupFromEeprom();
@@ -140,6 +140,16 @@ void loop() {
   
   serialRxCheck(&usbSerial);
   serialTxCheck(&usbSerial);
+
+  // stripColorFill(0, 0x28FFA300);
+  // stripColorFill(1, 0xFEC3177F);
+  // stripColorFill(2, 0xFD8A7F00);
+  // stripColorFill(3, 0xFD7E0800);
+  // stripColorFill(4, 0xFD8A7F00);
+  // stripColorFill(5, 0xFD7E0800);
+  // stripColorFill(6, 0x000000B4);
+  // stripColorFill(7, 0xFFFF0000);
+  // stripColorFill(8, 0xFD8A7F00);
 
   pixelActionsHandler();
   

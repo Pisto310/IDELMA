@@ -62,3 +62,9 @@ uint8_t tenTimesByteMultiplier(byte initialVal) {
   initialVal = (uint8_t) initialVal;
   return((initialVal << 3) + (initialVal << 1));
 }
+
+void digitSeparator(uint8_t number, uint8_t *divContainer, uint8_t *modContainer) {
+  // Taking care of the division by 10
+  *divContainer = pgm_read_byte(&_divByTenLookUp[number]);
+  *modContainer = number - (*divContainer * 10);
+}
