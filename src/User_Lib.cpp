@@ -63,6 +63,12 @@ uint8_t tenTimesByteMultiplier(byte initialVal) {
   return((initialVal << 3) + (initialVal << 1));
 }
 
+uint8_t hundredTimesByteMultiplier(byte initialVal) {
+  // The idea is that 100 = 64 + 32 + 4. One left shift of 6 bits, one of 5 bits and the final one of one bit
+  initialVal = (uint8_t) initialVal;
+  return((initialVal << 6) + (initialVal << 5) + (initialVal << 1));
+}
+
 void digitSeparator(uint8_t number, uint8_t *divContainer, uint8_t *modContainer) {
   // Taking care of the division by 10
   *divContainer = pgm_read_byte(&_divByTenLookUp[number]);

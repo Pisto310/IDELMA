@@ -40,7 +40,6 @@ Description : Everything associated to the board, from user-defined serial numbe
 /* ------------- EEPROM SECTION ------------- */
 
 
-
 /* --------- PHYSICAL PINS OF MCU --------- */
 
 // maximum number of sections that are possible to instanciate w/ the Arduino Mega

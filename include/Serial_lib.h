@@ -21,7 +21,7 @@ Description : All things serial lib header file
 //   RESERVED_7
 // }serial_status_t;
 
-typedef enum {
+typedef enum serial_rx {
   SER_RX_IDLE,
   SER_RX_RQST,
   SER_RX_CMPLT,
@@ -29,7 +29,7 @@ typedef enum {
   SER_RX_DEADEND
 }serial_rx_t;
 
-typedef enum {
+typedef enum serial_tx {
   SER_TX_IDLE,
   SER_TX_RQST,
   SER_TX_RDY,
@@ -37,9 +37,10 @@ typedef enum {
   SER_TX_FRZ
 }serial_tx_t;
 
-typedef struct {
+typedef struct serial_obj{
   HardwareSerial *serialPort;
   byte buffer[64];
+  byte parsedMssg[64];                    //Might reduce length...
   uint8_t bytesInBuf;
   serial_rx_t rxStatus = SER_RX_IDLE;
   serial_tx_t txStatus = SER_TX_IDLE;
