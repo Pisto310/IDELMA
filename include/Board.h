@@ -79,7 +79,7 @@ typedef struct MutableBrdInfo {
 
 typedef struct BoardInfosPtrs {
   const uint32_t*    serialNumPtr;
-  const firmware_t*  fw_versionPtr;
+  const firmware_t*  fwVersionPtr;
   mutable_brdInfo_t* sectionsInfoPtr;
   mutable_brdInfo_t* pixelsInfoPtr;
 }board_infos_ptrs_t;

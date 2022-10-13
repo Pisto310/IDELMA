@@ -48,9 +48,9 @@ mutable_brdInfo_t pixelsInfo = {
   .assigned = 0
 };
 
-board_infos_ptrs_t boardInfos = {
+board_infos_ptrs_t ptrBoardInfos = {
   .serialNumPtr = &sn,
-  .fw_versionPtr = &fwVersion,
+  .fwVersionPtr = &fwVersion,
   .sectionsInfoPtr = &sectionsInfo,
   .pixelsInfoPtr = &pixelsInfo
 };
@@ -75,7 +75,7 @@ board_infos_ptrs_t boardInfos = {
 //**********    GLOBAL FUNC DEFINITION   ************//
 
 board_infos_ptrs_t getBoardInfosPtrs(void) {
-  return boardInfos;
+  return ptrBoardInfos;
 }
 
 // returns either True of False if enough heap space is available to create the number of pixels asked for

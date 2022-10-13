@@ -8,6 +8,13 @@ Description : All things serial lib header file
 #define SERIAL_LIB_H_
 
 #include "Arduino.h"
+#include "HardwareSerial.h"
+
+#if SERIAL_RX_BUFFER_SIZE >= SERIAL_TX_BUFFER_SIZE
+#define BUFFER_LEN  SERIAL_RX_BUFFER_SIZE
+#else
+#define BUFFER_LEN  SERIAL_TX_BUFFER_SIZE
+#endif
 
 // typedef enum {
 //   SER_IDLE,
@@ -27,7 +34,7 @@ typedef enum serial_rx {
   SER_RX_CMPLT,
   SER_RX_FRZ,
   SER_RX_DEADEND
-}serial_rx_t;
+} serial_rx_state;
 
 typedef enum serial_tx {
   SER_TX_IDLE,
@@ -35,15 +42,29 @@ typedef enum serial_tx {
   SER_TX_RDY,
   SER_TX_CMPLT,
   SER_TX_FRZ
-}serial_tx_t;
+} serial_tx_state;
+
+typedef enum rqst_action {
+  RQST_NONE,
+  RQST_SER_NUM,
+  RQST_FW_VERS,
+  RQST_SCTS_MGMT,
+  RQST_PXLS_MGMT,
+  RQST_SETUP_SCT
+} rqst_action_t;
+
+typedef struct serial_buffer{
+  byte buffer[BUFFER_LEN];
+  uint8_t bufferLen;
+} ser_buffer_t;
 
 typedef struct serial_obj{
   HardwareSerial *serialPort;
-  byte buffer[64];
-  byte parsedMssg[64];                    //Might reduce length...
-  uint8_t bytesInBuf;
-  serial_rx_t rxStatus = SER_RX_IDLE;
-  serial_tx_t txStatus = SER_TX_IDLE;
+  ser_buffer_t RX;
+  ser_buffer_t TX;
+  serial_rx_state rxStatus = SER_RX_IDLE;
+  serial_tx_state txStatus = SER_TX_IDLE;
+  rqst_action_t pendingRqst = RQST_NONE;
 }serial_obj_t;
 
 void serialRxCheck(serial_obj_t *serialObj);

@@ -16,19 +16,6 @@ Description : All things serial lib source file
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
-enum serial_rqst {
-  SER_RQST_NONE,
-  SER_RQST_SER_NUM,
-  SER_RQST_FW_VERS,
-  SER_RQST_SCTS_MGMT,
-  SER_RQST_PXLS_MGMT,
-  SER_RQST_SETUP_SCT
-  // SER_RQST_BRD_INFOS,
-  // SER_RQST_SCT_INFO_ARR,
-  // SER_RQST_SAVE_SCTS_CONFIG,
-  // SER_RQST_LED_COLOR_CHANGE
-};
-
 const char acknowledge = 0x06;
 const char lineFeed    = '\n';
 const char spaceChar   = ' ';
@@ -40,9 +27,15 @@ const char spaceChar   = ' ';
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-void messageParsing(serial_obj_t *serialObj);
-void clearBuffer(serial_obj_t *serialObj);
-void rqstHandler(serial_obj_t *serialObj);
+void serialRqstHandler(serial_obj_t *serialObj);
+void sendSerialNum(void);
+
+uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
+uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
+
+void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
+
+void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes);
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
@@ -53,8 +46,8 @@ void serialRxCheck(serial_obj_t *serialObj) {
   switch (serialObj->rxStatus) {
   
   case SER_RX_RQST:
-    serialObj->bytesInBuf = (*serialObj->serialPort).readBytes(serialObj->buffer, 64);
-    if(serialObj->bytesInBuf) {
+    serialObj->RX.bufferLen = (*serialObj->serialPort).readBytes(serialObj->RX.buffer, BUFFER_LEN);
+    if(serialObj->RX.bufferLen) {
       // Read was succesful
       serialObj->rxStatus = SER_RX_CMPLT;
     }
@@ -66,11 +59,13 @@ void serialRxCheck(serial_obj_t *serialObj) {
     break;
 
   case SER_RX_CMPLT:
-    // messageParsing(serialObj);
-    // //clearBuffer(serialObj);
-    // serialObj->rxStatus = SER_RX_IDLE;
-    // serialObj->txStatus = SER_TX_IDLE;
-    rqstHandler(serialObj);
+
+    serialObj->txStatus = SER_TX_IDLE;
+    serialObj->RX.bufferLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
+    // clrBuffData(&serialObj->RX, serialObj->RX.bufferLen); 
+    // serialWrite(serialObj, serialObj->RX.buffer, serialObj->RX.bufferLen);
+    serialObj->rxStatus = SER_RX_IDLE;
+    serialRqstHandler(serialObj);
     break;
 
   case SER_RX_FRZ:
@@ -88,30 +83,29 @@ void serialRxCheck(serial_obj_t *serialObj) {
   }
 }
 
+
 void serialTxCheck(serial_obj_t *serialObj) {
 
   switch (serialObj->txStatus) {
 
   case SER_TX_RQST:
     // Adding the 'line feed' (\n) character and incrementing nbr of bytes in buffer
-    if(serialObj->bytesInBuf) {
-      serialObj->buffer[serialObj->bytesInBuf] = lineFeed;
-      serialObj->bytesInBuf += 1;
+    if(serialObj->TX.bufferLen) {
+      serialObj->TX.buffer[serialObj->TX.bufferLen] = lineFeed;
+      serialObj->TX.bufferLen += 1;
       serialObj->txStatus = SER_TX_RDY;
     }
     break;
   
   case SER_TX_RDY:
     // Send buffer content on serial port    
-    (*serialObj->serialPort).write(serialObj->buffer, serialObj->bytesInBuf);
+    (*serialObj->serialPort).write(serialObj->TX.buffer, serialObj->TX.bufferLen);
     serialObj->txStatus = SER_TX_CMPLT;
     break;
 
   case SER_TX_CMPLT:
     // Unfreeze RX
     serialObj->rxStatus = SER_RX_IDLE;
-    // clearing all TX attributes
-    clearBuffer(serialObj);            // important to clear buffer first
     serialObj->txStatus = SER_TX_IDLE;
     break;
 
@@ -125,14 +119,116 @@ void serialTxCheck(serial_obj_t *serialObj) {
   }
 }
 
+
+void serialNum(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+  *txNewStatus = SER_TX_RQST;
+  *rxNewStatus = SER_RX_FRZ;
+}
+
+
+void fwVersion(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
+  *txNewStatus = SER_TX_RQST;
+  *rxNewStatus = SER_RX_FRZ;
+}
+
+
+void sctsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
+  *txNewStatus = SER_TX_RQST;
+  *rxNewStatus = SER_RX_FRZ;
+}
+
+
+void pxlsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+  *txNewStatus = SER_TX_RQST;
+  *rxNewStatus = SER_RX_FRZ;
+}
+
+
+// Handler for all requests coming in from serial port
+void serialRqstHandler(serial_obj_t *serialObj) {
+  
+  switch(serialObj->pendingRqst) {
+  case RQST_SER_NUM:
+    {
+      serialNum(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      break;
+    }
+  case RQST_FW_VERS:
+    {
+      fwVersion(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      break;
+    }
+  case RQST_SCTS_MGMT:
+    {
+      sctsManagement(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      break;
+    }
+  case RQST_PXLS_MGMT:
+    {
+      pxlsManagement(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      break;
+    }
+  case RQST_NONE:
+    {
+      // Add something later?
+      break;
+    }
+  default:
+    {
+      break;
+    }
+  }
+  serialObj->pendingRqst = RQST_NONE;
+}
+
+
+// Basically, keeping the same logic as the messageParsing function in the python code
+uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
+   
+  bool rqstCheck = false;
+  uint8_t unitsTracker = 0;
+  uint8_t extractedNbr = 0;
+  uint8_t newLen = 0;
+  
+  for(uint8_t i = 0; i < ser->bufferLen; i++) {
+    if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
+      extractedNbr += convertAsciiToHex(ser->buffer[i]) * pow(10, unitsTracker);
+      unitsTracker++;
+    }
+    else {
+      if(unitsTracker) {
+        if(!rqstCheck) {
+          *receivedRqst = (rqst_action_t) extractedNbr;
+          rqstCheck = true;
+        }
+        else {
+          ser->buffer[newLen] = extractedNbr;
+          newLen++;
+        }
+        unitsTracker = 0;
+        extractedNbr = 0;
+      }
+      if(ser->buffer[i] == lineFeed) {
+        break;
+      }
+    }
+  }
+  return(newLen);
+}
+ 
+
 // Function used to fill the serial Rx buffer array. The idea is to separate each digits composing a number into individual bytes
 // all organized following the "little endian" order (units come first, then tens, then hundreds)
-uint8_t fillBuffer(serial_obj_t *serialObj, byte *infoStartAddr, uint8_t infoBlockSize) {
+uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize) {
   
   // The following array is a rough representation of units[1], tens[2] & hundreds[3] of the base ten for digit splitting
   uint8_t baseTenArray[3] = {0, 0, 0};
-  uint8_t serialBufLen = 0;
-  int8_t arrNonZeroLen = 1;
+  uint8_t arrNonZeroLen = 1;
+  uint8_t newLen = 0;
 
   for(uint8_t i = 0; i < infoBlockSize; i += BYTE_SIZE) {
     if(*(infoStartAddr + i) >= 10) {
@@ -147,102 +243,108 @@ uint8_t fillBuffer(serial_obj_t *serialObj, byte *infoStartAddr, uint8_t infoBlo
       baseTenArray[0] = *(infoStartAddr + i);
     }
     for(uint8_t i = 0; i < arrNonZeroLen; i++) {
-      serialObj->buffer[serialBufLen] = baseTenArray[i];
-      serialBufLen++;
+      buffer[newLen] = baseTenArray[i];
+      newLen++;
     }
-
-    // Adding the space char to the buffer
-    serialObj->buffer[serialBufLen] = spaceChar;
-    serialBufLen++;
-    arrNonZeroLen = 1;
+    // Adding the space char to the buffer, except when the info block has been done in entirety
+    if(i < infoBlockSize - BYTE_SIZE) {
+      buffer[newLen] = spaceChar;
+      newLen++;
+      arrNonZeroLen = 1;
+    }
   }
-  return(serialBufLen);
+  return(newLen);
 }
 
-void replyToRqst(serial_obj_t *serialObj, byte* ptrToInfo, uint8_t infoSize) {
-  clearBuffer(serialObj);
-  serialObj->bytesInBuf = fillBuffer(serialObj, (byte*) ptrToInfo, infoSize);
+
+// Clearing unwanted characters in a serial buffer
+void clrBuffData(ser_buffer_t *ser, uint8_t startIndex, uint8_t stopIndex) {
+  for(uint8_t i = startIndex; i < stopIndex; i++) {
+    ser->buffer[i] = 0;
+  }
+}
+
+
+
+//**********    DEBUG FUNCTION   ************//
+
+// Homemade Serial write func that adds the lineFeed char at the end of data to send
+void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes) {
+  
+  byte serialArr[nbrOfBytes + 1];
+  serialArr[nbrOfBytes] = lineFeed;
+
+  for(uint8_t i = 0; i < (nbrOfBytes); i++) {
+    serialArr[i] = dataToWrite[i];
+  }
+  serialObj->serialPort->write(serialArr, nbrOfBytes + 1);
+}
+
+//**********    DEBUG FUNCTION   ************//
+
+
+
+//*********         KEEPING THAT          ***********//
+
+
+// void replyToRqst(serial_obj_t *serialObj, byte* ptrToInfo, uint8_t infoSize) {
+//   clearBuffer(serialObj);
+//   serialObj->rxBuffLen = fillBuffer(serialObj, (byte*) ptrToInfo, infoSize);
       
-  serialObj->txStatus = SER_TX_RQST;
-  serialObj->rxStatus = SER_RX_FRZ;
-}
+//   serialObj->txStatus = SER_TX_RQST;
+//   serialObj->rxStatus = SER_RX_FRZ;
+// }
 
-// Basically, keeping the same logic as the messageParsing function in the python code
-void messageParsing(serial_obj_t *serialObj) {
-   
-  uint8_t unitsTracker = 0;
-  uint8_t extractedNbr = 0;
 
-  uint8_t length = 0;
+// void rqstHandler(serial_obj_t *serialObj) {
+
+//   //Serial.print(serialObj->buffer[0]);
+//   switch (convertAsciiToHex(serialObj->buffer[0])) {
+
+//   case SER_RQST_SER_NUM:
+//     {
+//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+//       break;
+//     }
   
-  for(uint8_t i = 0; i < serialObj->bytesInBuf; i++) {
-    if(serialObj->buffer[i] == spaceChar) {
-      unitsTracker = 0;
-      serialObj->parsedMssg[i] = extractedNbr;
-      
-      length++;
-    }
-    else if(serialObj->buffer[i] == lineFeed) {
-      break;
-    }
-    else {
-      extractedNbr += serialObj->buffer[i] * pow(10, unitsTracker);
-      unitsTracker++;
-    }
-  }
-}
-
-void clearBuffer(serial_obj_t *serialObj) {
-  for(size_t i = 0; i < serialObj->bytesInBuf; i++) {
-    serialObj->buffer[i] = 0;
-  }
-  serialObj->bytesInBuf = 0;
-}
-
-void rqstHandler(serial_obj_t *serialObj) {
-
-  //Serial.print(serialObj->buffer[0]);
-  switch (convertAsciiToHex(serialObj->buffer[0])) {
-
-  case SER_RQST_SER_NUM:
-    {
-      replyToRqst(serialObj, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
-      break;
-    }
+//   case SER_RQST_FW_VERS:
+//     {
+//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().fw_versionPtr, sizeof(*(getBoardInfosPtrs().fw_versionPtr)));
+//       break;
+//     }
   
-  case SER_RQST_FW_VERS:
-    {
-      replyToRqst(serialObj, (byte*) getBoardInfosPtrs().fw_versionPtr, sizeof(*(getBoardInfosPtrs().fw_versionPtr)));
-      break;
-    }
-  
-  case SER_RQST_SCTS_MGMT:
-    {
-      replyToRqst(serialObj, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
-      break;
-    }
+//   case SER_RQST_SCTS_MGMT:
+//     {
+//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
+//       break;
+//     }
 
-  case SER_RQST_PXLS_MGMT:
-    {
-      replyToRqst(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
-      break;
-    }
+//   case SER_RQST_PXLS_MGMT:
+//     {
+//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+//       break;
+//     }
 
-  case SER_RQST_SETUP_SCT:
-    {
-      byte ledCount;
-      for(uint8_t i = 1; i < serialObj->bytesInBuf - 1; i += 3) {
-        ledCount = convertAsciiToHex(serialObj->buffer[i]) + 
-          tenTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 1])) + 
-          hundredTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 2]));
-      }
-      createSection(ledCount);
+//   case SER_RQST_SETUP_SCT:
+//     {
+//       byte ledCount;
+//       for(uint8_t i = 1; i < serialObj->bytesInBuf - 1; i += 3) {
+//         ledCount = convertAsciiToHex(serialObj->buffer[i]) + 
+//           tenTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 1])) + 
+//           hundredTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 2]));
+//       }
+//       createSection(ledCount);
 
-      replyToRqst(serialObj, (byte*) &acknowledge, sizeof(acknowledge));
-      break;
-    }
-  }
-}
+//       replyToRqst(serialObj, (byte*) &acknowledge, sizeof(acknowledge));
+//       break;
+//     }
+//   }
+// }
+
+//*********         KEEPING THAT          ***********//
+
+
+
 
 
 

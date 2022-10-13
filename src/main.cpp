@@ -141,8 +141,9 @@ void loop() {
   serialRxCheck(&usbSerial);
   serialTxCheck(&usbSerial);
 
-  // stripColorFill(0, 0x28FFA300);
-  // stripColorFill(1, 0xFEC3177F);
+  // stripColorFill(0, 0xFD8A7F00);
+  // stripColorFill(1, 0x28FFA300);
+  // stripColorFill(2, 0xFEC3177F);
   // stripColorFill(2, 0xFD8A7F00);
   // stripColorFill(3, 0xFD7E0800);
   // stripColorFill(4, 0xFD8A7F00);
@@ -151,7 +152,7 @@ void loop() {
   // stripColorFill(7, 0xFFFF0000);
   // stripColorFill(8, 0xFD8A7F00);
 
-  pixelActionsHandler();
+  // pixelActionsHandler();
   
   // if(Serial.available()) {
   //   serialRxRead(&usbSerial);
