@@ -93,15 +93,15 @@ void setup() {
   //   setupFromEepromSave();
   // }
   
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
-  // createSection(6, brightnessLED);
+  setupSection(6, 10);
+  setupSection(6, 255);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
+  // setupSection(6, brightnessLED);
   // eepromMemCheck();
 
   // stripSetupFromEeprom();

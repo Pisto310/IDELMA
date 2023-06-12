@@ -40,7 +40,7 @@ Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
 
 section_info_t sectionInfoArr[MAX_NO_SCTS];
 
-uint8_t sectionIndex = 0;
+static uint8_t sectionIndex = 0;
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
@@ -65,42 +65,54 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
 
+// Function called to fill the RAM space dedicated to the pixels info
+void setPxlInfo(uint8_t pxlCount) {
+  arrPtrPxlInfo[sectionIndex] = ptrPxlInfo;
+  ptrPxlInfo += pxlCount;
 
-
-void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness) {
-
-  if(remainingHeapSpace(nbrOfLEDs) && remainingSctsPins()) {
-
-    // Everything related to pxlInfo struct is done here
-    arrPtrPxlInfo[sectionIndex] = ptrPxlInfo;
-    ptrPxlInfo += nbrOfLEDs;
-
-    for(uint8_t pxlNbr = 0; pxlNbr < nbrOfLEDs; pxlNbr++) {
-      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlSct   = sectionIndex;
-      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlNbr   = pxlNbr;
-      (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlState = IDLE;
-    }
-
-    // Everything related to the neopxl object itself is done below
-    neopxlObjArr[sectionIndex].updateLength((uint16_t)nbrOfLEDs);
-    
-    // needs to be done for each instanciated neopxlObj
-    neopxlObjArr[sectionIndex].begin();
-    neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
-    stripOFF(sectionIndex);
-
-    // updating the section info matrix
-    sectionInfoArr[sectionIndex].nbrOfPxls     = nbrOfLEDs;
-    sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
-
-    // updating sections and pixels usage
-    sectionsMgmtAdd();
-    pixelsMgmtAdd(nbrOfLEDs);
-    sectionIndex++;
+  for(uint8_t pxlNbr = 0; pxlNbr < pxlCount; pxlNbr++) {
+    (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlSct   = sectionIndex;
+    (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlNbr   = pxlNbr;
+    (arrPtrPxlInfo[sectionIndex] + pxlNbr)->pxlState = IDLE;
   }
 }
 
 
+// Function used to instantiate a neo Pixel object of required length and brightness
+void setNeoPxl(uint8_t pxlCount, uint8_t maxBrightness) {
+  neopxlObjArr[sectionIndex].updateLength((uint16_t)pxlCount);
+
+  // needs to be done for each instanciated neopxlObj
+  neopxlObjArr[sectionIndex].begin();
+  neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
+  stripColorFill(sectionIndex, 0xFF00FF00);
+  // stripOFF(sectionIndex);
+
+  // updating the section info matrix
+  sectionInfoArr[sectionIndex].nbrOfPxls     = pxlCount;
+  sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
+}
+
+
+
+void setupSection(uint8_t pxlCount, uint8_t maxBrightness, bool sctAsPxl) {
+  
+  if(sctAsPxl) {
+    if(remainingHeapSpace(1) && remainingSctsPins()) {
+      setPxlInfo(1);
+      pixelsMgmtAdd(1);
+    }
+  }
+  else {
+    if(remainingHeapSpace(pxlCount) && remainingSctsPins()) {
+      setPxlInfo(pxlCount);
+      pixelsMgmtAdd(pxlCount);
+    }
+  }
+  setNeoPxl(pxlCount, maxBrightness);
+  sectionsMgmtAdd();
+  sectionIndex++;
+}
 
 
 // Basically, if resetting a section, the pointer to its RAM location doesn't change, but the pointer
@@ -158,28 +170,28 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
 // Save basic sections and pixels config infos into the EEPROM's first page
 // Content to save : number of sections, number of pixels in each sections and set brightness for each section
 // Basically saving the section_info_t obj matrix
-void setupSaveToEeprom(void) {
+// void setupSaveToEeprom(void) {
   
-  uint16_t addrTracker;
+//   uint16_t addrTracker;
 
-  // First, we save the number of sections created at the start of the EEPROM page
-  addrTracker = eepromSave(EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE), (byte*) &sectionIndex, 1, sizeof(sectionIndex));
-  eepromSave(addrTracker, (byte*) sectionInfoArr, 1, sizeof(sectionInfoArr));
-}
+//   // First, we save the number of sections created at the start of the EEPROM page
+//   addrTracker = eepromSave(EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE), (byte*) &sectionIndex, 1, sizeof(sectionIndex));
+//   eepromSave(addrTracker, (byte*) sectionInfoArr, 1, sizeof(sectionInfoArr));
+// }
 
 // Setting up the board from a saved setup config
-void setupFromEepromSave(void) {
+// void setupFromEepromSave(void) {
 
-  uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE);
-  byte sctsToSetup = EEPROM.read(eepromAddr);
+//   uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE);
+//   byte sctsToSetup = EEPROM.read(eepromAddr);
 
-  eepromAddr += BYTE_SIZE;
+//   eepromAddr += BYTE_SIZE;
 
-  while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
-    createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
-    eepromAddr += sizeof(section_info_t);
-  }
-}
+//   while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
+//     createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
+//     eepromAddr += sizeof(section_info_t);
+//   }
+// }
 
 // void eepromPxlInfoRead(void) {
 
@@ -415,8 +427,8 @@ void pxlOFF(uint8_t section, uint8_t pixel) {
 // lights a whole strip with the color passed as input
 // gamma32 correction is applied on the color outputted to the strip
 void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
-  if(hsvFormat) {
-    
+  
+  if(hsvFormat) {  
     uint16_t hue = (uint16_t)((color & 0xFFFF0000) >> 16);
     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
@@ -845,7 +857,7 @@ void removingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs) {
   sectionInfoArr[section].nbrOfPxls = newNbrOfLEDs;
 }
 
-void addingPxlsFromSct(uint8_t section, uint8_t newNbrOfLEDs) {
+void addingPxlsToSct(uint8_t section, uint8_t newNbrOfLEDs) {
 
   uint8_t  toBeUsedHeapBlocks = newNbrOfLEDs - sectionInfoArr[section].nbrOfPxls;             // Expressed in terms of a number of pixel_info_t OBJ
   uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;

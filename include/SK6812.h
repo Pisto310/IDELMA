@@ -76,24 +76,14 @@ extern Adafruit_NeoPixel sct_11;
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 
-/*
-The old way of storing all pixel_info_t struct instance was to declare a 2D array that was MAX_NO_SCTS X LENGTH_OF_LONGEST_SECTION.
-This would mean that for sections shorter than the longest, we would have blank memory space that was wasted.
-
-Now, we dynamically allocate space in RAM (heap) of size PXLINFO_HEAP_SIZE. This returns us a pointer to the start of the heap.
-Then, we declare an array of size MAX_NO_SCTS that will contain the pxlInfo pointers. These pointers will mark the start of each section.
-Finally, as we did before, we can work with an array of Adafruit_Neopxl obj of the same size (MAX_NO_SCTS) as the array of pointers to pxlInfo struct, 
-*/
-
 extern pixel_info_t* ptrPxlInfo;
 //extern pixel_info_t* arrPtrPxlInfo[];
 //extern Adafruit_NeoPixel neopxlObjArr[];
 
 
-
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
-void createSection(uint8_t nbrOfLEDs, uint8_t maxBrightness = 50);
+void setupSection(uint8_t pxlCount, uint8_t maxBrightness = 50, bool sctsAsPxl = false);
 void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness = 50);
                 
                 // TEMPORARY //

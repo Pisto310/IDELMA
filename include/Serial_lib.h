@@ -55,7 +55,7 @@ typedef enum rqst_action {
 
 typedef struct serial_buffer{
   byte buffer[BUFFER_LEN];
-  uint8_t bufferLen;
+  uint8_t mssgLen;
 } ser_buffer_t;
 
 typedef struct serial_obj{

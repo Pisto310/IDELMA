@@ -28,7 +28,6 @@ const char spaceChar   = ' ';
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
 void serialRqstHandler(serial_obj_t *serialObj);
-void sendSerialNum(void);
 
 uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
 uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
@@ -46,8 +45,8 @@ void serialRxCheck(serial_obj_t *serialObj) {
   switch (serialObj->rxStatus) {
   
   case SER_RX_RQST:
-    serialObj->RX.bufferLen = (*serialObj->serialPort).readBytes(serialObj->RX.buffer, BUFFER_LEN);
-    if(serialObj->RX.bufferLen) {
+    serialObj->RX.mssgLen = (*serialObj->serialPort).readBytes(serialObj->RX.buffer, BUFFER_LEN);
+    if(serialObj->RX.mssgLen) {
       // Read was succesful
       serialObj->rxStatus = SER_RX_CMPLT;
     }
@@ -61,7 +60,7 @@ void serialRxCheck(serial_obj_t *serialObj) {
   case SER_RX_CMPLT:
 
     serialObj->txStatus = SER_TX_IDLE;
-    serialObj->RX.bufferLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
+    serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
     // clrBuffData(&serialObj->RX, serialObj->RX.bufferLen); 
     // serialWrite(serialObj, serialObj->RX.buffer, serialObj->RX.bufferLen);
     serialObj->rxStatus = SER_RX_IDLE;
@@ -90,16 +89,16 @@ void serialTxCheck(serial_obj_t *serialObj) {
 
   case SER_TX_RQST:
     // Adding the 'line feed' (\n) character and incrementing nbr of bytes in buffer
-    if(serialObj->TX.bufferLen) {
-      serialObj->TX.buffer[serialObj->TX.bufferLen] = lineFeed;
-      serialObj->TX.bufferLen += 1;
+    if(serialObj->TX.mssgLen) {
+      serialObj->TX.buffer[serialObj->TX.mssgLen] = lineFeed;
+      serialObj->TX.mssgLen += 1;
       serialObj->txStatus = SER_TX_RDY;
     }
     break;
   
   case SER_TX_RDY:
     // Send buffer content on serial port    
-    (*serialObj->serialPort).write(serialObj->TX.buffer, serialObj->TX.bufferLen);
+    (*serialObj->serialPort).write(serialObj->TX.buffer, serialObj->TX.mssgLen);
     serialObj->txStatus = SER_TX_CMPLT;
     break;
 
@@ -121,28 +120,28 @@ void serialTxCheck(serial_obj_t *serialObj) {
 
 
 void serialNum(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
   *txNewStatus = SER_TX_RQST;
   *rxNewStatus = SER_RX_FRZ;
 }
 
 
 void fwVersion(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
+  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
   *txNewStatus = SER_TX_RQST;
   *rxNewStatus = SER_RX_FRZ;
 }
 
 
 void sctsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
+  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
   *txNewStatus = SER_TX_RQST;
   *rxNewStatus = SER_RX_FRZ;
 }
 
 
 void pxlsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->bufferLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
   *txNewStatus = SER_TX_RQST;
   *rxNewStatus = SER_RX_FRZ;
 }
@@ -172,6 +171,15 @@ void serialRqstHandler(serial_obj_t *serialObj) {
       pxlsManagement(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
       break;
     }
+  case RQST_SETUP_SCT:
+    {
+      // Byte [0] = pixel count
+      // Byte [1] = LED brightness
+      // Byte [2] = bool to set the section as a single pixel or not
+      uint8_t pxlCount = serialObj->RX.buffer[0];
+      bool sctAsPxl = serialObj->RX.buffer[1];
+      setupSection(pxlCount, 50, sctAsPxl);
+    }
   case RQST_NONE:
     {
       // Add something later?
@@ -194,7 +202,7 @@ uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
   uint8_t extractedNbr = 0;
   uint8_t newLen = 0;
   
-  for(uint8_t i = 0; i < ser->bufferLen; i++) {
+  for(uint8_t i = 0; i < ser->mssgLen; i++) {
     if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
       extractedNbr += convertAsciiToHex(ser->buffer[i]) * pow(10, unitsTracker);
       unitsTracker++;
@@ -282,98 +290,3 @@ void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes
 
 //**********    DEBUG FUNCTION   ************//
 
-
-
-//*********         KEEPING THAT          ***********//
-
-
-// void replyToRqst(serial_obj_t *serialObj, byte* ptrToInfo, uint8_t infoSize) {
-//   clearBuffer(serialObj);
-//   serialObj->rxBuffLen = fillBuffer(serialObj, (byte*) ptrToInfo, infoSize);
-      
-//   serialObj->txStatus = SER_TX_RQST;
-//   serialObj->rxStatus = SER_RX_FRZ;
-// }
-
-
-// void rqstHandler(serial_obj_t *serialObj) {
-
-//   //Serial.print(serialObj->buffer[0]);
-//   switch (convertAsciiToHex(serialObj->buffer[0])) {
-
-//   case SER_RQST_SER_NUM:
-//     {
-//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
-//       break;
-//     }
-  
-//   case SER_RQST_FW_VERS:
-//     {
-//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().fw_versionPtr, sizeof(*(getBoardInfosPtrs().fw_versionPtr)));
-//       break;
-//     }
-  
-//   case SER_RQST_SCTS_MGMT:
-//     {
-//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
-//       break;
-//     }
-
-//   case SER_RQST_PXLS_MGMT:
-//     {
-//       replyToRqst(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
-//       break;
-//     }
-
-//   case SER_RQST_SETUP_SCT:
-//     {
-//       byte ledCount;
-//       for(uint8_t i = 1; i < serialObj->bytesInBuf - 1; i += 3) {
-//         ledCount = convertAsciiToHex(serialObj->buffer[i]) + 
-//           tenTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 1])) + 
-//           hundredTimesByteMultiplier(convertAsciiToHex(serialObj->buffer[i + 2]));
-//       }
-//       createSection(ledCount);
-
-//       replyToRqst(serialObj, (byte*) &acknowledge, sizeof(acknowledge));
-//       break;
-//     }
-//   }
-// }
-
-//*********         KEEPING THAT          ***********//
-
-
-
-
-
-
-
-
-// // This func reads the first bytes of a serial buffer and saves the action to undertake
-// void serialRqstHandler(serial_obj_t *serialObj) {
-//   Serial.println(convertAsciiToHex(serialObj->rxByteBuf[0]), BIN);
-//   serialObj->status = (serial_status_t)convertAsciiToHex(serialObj->rxByteBuf[0]);
-// }
-
-// void serialColorRx(serial_obj_t *serialObj) {
-//   // All things related to color could be in another function
-//   // keeping only lines 22-25 would make sense in the context of the func's name
-//   int8_t rgbwColor[4] = {0, 0, 0, 0};
-
-//   for(uint8_t i = 0; i < serialObj->bytesInBuf; i += 2) {
-//     rgbwColor[i >> 1] = ((uint8_t) (convertAsciiToHex(serialObj->buffer[i])) << 4) | 
-//                         ((uint8_t)  convertAsciiToHex(serialObj->buffer[i + 1]));
-//    }
-
-//   // uint32_t colorToSend = (((uint32_t) rgbwColor[0]) << 24) |
-//   //                        (((uint32_t) rgbwColor[1]) << 16) |
-//   //                        (((uint32_t) rgbwColor[2]) << 8 ) |
-//   //                         ((uint32_t) rgbwColor[3]       );
-    
-//   // Serial.println(colorToSend);
-
-//   // Pixel and sections ar hardcoded for debugging
-//   //pxlColorOut(0, 0, colorToSend);
-//   //Serial.println(stripsArrayOfPxl[0][0].rgbwColor);
-// }
