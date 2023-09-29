@@ -101,7 +101,7 @@ typedef struct {
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 
-board_infos_ptrs_t getBoardInfosPtrs(void);
+board_infos_ptrs_t getBoardInfosPtrs();
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();
@@ -109,6 +109,8 @@ void sectionsMgmtAdd();
 void pixelsMgmtAdd(uint8_t spaceFilled);
 void sectionsMgmtRemove();
 void pixelsMgmtRemove(uint8_t spaceFreed);
+
+void configSct(uint8_t sctIndex, uint8_t pxlCount);
 
 bool eepromBootSaveCheck(void);
 

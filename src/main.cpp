@@ -93,8 +93,8 @@ void setup() {
   //   setupFromEepromSave();
   // }
   
-  setupSection(6, 10);
-  setupSection(6, 255);
+  // setupSection(6, 10);
+  // setupSection(6, 255);
   // setupSection(6, brightnessLED);
   // setupSection(6, brightnessLED);
   // setupSection(6, brightnessLED);

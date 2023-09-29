@@ -50,7 +50,7 @@ typedef enum rqst_action {
   RQST_FW_VERS,
   RQST_SCTS_MGMT,
   RQST_PXLS_MGMT,
-  RQST_SETUP_SCT
+  RQST_CONFIG_BRD = 10,
 } rqst_action_t;
 
 typedef struct serial_buffer{

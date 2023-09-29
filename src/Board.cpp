@@ -74,7 +74,7 @@ board_infos_ptrs_t ptrBoardInfos = {
 
 //**********    GLOBAL FUNC DEFINITION   ************//
 
-board_infos_ptrs_t getBoardInfosPtrs(void) {
+board_infos_ptrs_t getBoardInfosPtrs() {
   return ptrBoardInfos;
 }
 
@@ -134,6 +134,15 @@ bool eepromBootSaveCheck(void) {
     }
   }
   return(configFromEeprom);
+}
+
+/// @brief Configure sections with info received through serial
+/// @param sctIndex 
+/// @param pxlCount 
+void configSct(uint8_t sctIndex, uint8_t pxlCount) {
+  if(!getSctInfos(sctIndex).nbrOfPxls) {
+    setupSection(pxlCount);
+  }
 }
 
 // Func to reset the eeprom's content

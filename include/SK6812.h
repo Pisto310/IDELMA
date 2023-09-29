@@ -11,7 +11,7 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "Board.h"
 
 
-typedef enum {
+typedef enum PixelStates{
   IDLE,                           // LED is ready for action
   HSV_FADE,                       // LED is in the process of fading in HSV color space
   RGB_FADE,                       // LED is in the process of fading in RGB color space
@@ -20,13 +20,13 @@ typedef enum {
   SPARKLE                         // LED is in the process of sparkling
 }pixel_state_t;
 
-typedef struct {
+typedef struct PixelActionTime {
   int32_t actionOneTime;          // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
   int32_t actionTwoTime;          // time between each step for sat (hueFade) or grn (rgbFade)
   int32_t actionThreeTime;        // time between each step for val (hueFade) or blu (rgbFade)
 }pixel_actionTime_t;
 
-typedef struct {
+typedef struct PixelActionStartTime {
   uint32_t actionOneStart;        // start time for action one
   uint32_t actionTwoStart;        // start time for action two
   uint32_t actionThreeStart;      // start time for action three
@@ -34,7 +34,7 @@ typedef struct {
 
 // struct to store the info of each pixel
 // each struct occupies a space of 44 bytes
-typedef struct {
+typedef struct PixelInfos {
   uint8_t             pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t             pxlNbr;               // pixel number in the strip/neopxlObj
   pixel_state_t       pxlState;             // pixel state
@@ -47,7 +47,7 @@ typedef struct {
 }pixel_info_t;
 
 // struct to store the info of a section of pixel
-typedef struct {
+typedef struct SectionInfos {
   uint8_t nbrOfPxls;
   uint8_t setBrightness;
 }section_info_t;
@@ -90,7 +90,7 @@ void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness =
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
                 // TEMPORARY //
 
-uint8_t sectionInfoArrSerial(byte byteBuffer[64]);
+section_info_t getSctInfos(uint8_t index);
 
 void setupSaveToEeprom(void);
 void setupFromEepromSave(void);

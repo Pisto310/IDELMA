@@ -85,18 +85,13 @@ void setNeoPxl(uint8_t pxlCount, uint8_t maxBrightness) {
   // needs to be done for each instanciated neopxlObj
   neopxlObjArr[sectionIndex].begin();
   neopxlObjArr[sectionIndex].setBrightness(maxBrightness);
-  stripColorFill(sectionIndex, 0xFF00FF00);
+  // stripColorFill(sectionIndex, 0xFF00FF00);
   // stripOFF(sectionIndex);
-
-  // updating the section info matrix
-  sectionInfoArr[sectionIndex].nbrOfPxls     = pxlCount;
-  sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
 }
 
 
 
 void setupSection(uint8_t pxlCount, uint8_t maxBrightness, bool sctAsPxl) {
-  
   if(sctAsPxl) {
     if(remainingHeapSpace(1) && remainingSctsPins()) {
       setPxlInfo(1);
@@ -111,6 +106,11 @@ void setupSection(uint8_t pxlCount, uint8_t maxBrightness, bool sctAsPxl) {
   }
   setNeoPxl(pxlCount, maxBrightness);
   sectionsMgmtAdd();
+
+  // updating the section info matrix
+  sectionInfoArr[sectionIndex].nbrOfPxls     = pxlCount;
+  sectionInfoArr[sectionIndex].setBrightness = maxBrightness;
+  
   sectionIndex++;
 }
 
@@ -139,18 +139,8 @@ void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness) 
 }
 
 
-uint8_t sectionInfoArrSerial(byte byteBuffer[64]) {
-
-  uint8_t sctInfoTypeSize = sizeof(section_info_t);
-  uint8_t sctInfoArrLen = sectionIndex;
-  byte* ptrSctInfoArr = (byte*) sectionInfoArr;
-
-  for(uint8_t i = 0; i < sctInfoArrLen; i++) {
-    for(uint8_t j = 0; j < sctInfoTypeSize; j++) {
-      byteBuffer[(sctInfoTypeSize * i) + j] = *(ptrSctInfoArr + i * j);
-    }
-  }
-  return(sctInfoArrLen * sctInfoTypeSize);
+section_info_t getSctInfos(uint8_t index) {
+  return sectionInfoArr[index];
 }
 
 

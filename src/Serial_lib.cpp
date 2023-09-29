@@ -6,7 +6,6 @@ Description : All things serial lib source file
 
 #include "Serial_lib.h"
 #include "User_Lib.h"
-#include "SK6812.h"
 #include "Board.h"
 
 #include <math.h>
@@ -39,7 +38,8 @@ void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
 
-
+/// @brief 
+/// @param serialObj 
 void serialRxCheck(serial_obj_t *serialObj) {
 
   switch (serialObj->rxStatus) {
@@ -82,7 +82,8 @@ void serialRxCheck(serial_obj_t *serialObj) {
   }
 }
 
-
+/// @brief 
+/// @param serialObj 
 void serialTxCheck(serial_obj_t *serialObj) {
 
   switch (serialObj->txStatus) {
@@ -118,34 +119,16 @@ void serialTxCheck(serial_obj_t *serialObj) {
   }
 }
 
-
-void serialNum(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+/// @brief Encodes the metadata info on the tx buffer and sends it over serial to the requester
+/// @param ser serial buffer type variable
+/// @param ptr2MetaData pointer to the metadata info to send
+/// @param rxNewStatus pointer to the RX serial status of a serial object type struct
+/// @param txNewStatus pointer to the TX serial status of a serial object type struct
+void sendMetaData(ser_buffer_t *ser, byte *ptr2MetaData, uint8_t metaDataBlockSize, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+  ser->mssgLen = txDataEncoding(ser->buffer, ptr2MetaData, metaDataBlockSize);
   *txNewStatus = SER_TX_RQST;
   *rxNewStatus = SER_RX_FRZ;
 }
-
-
-void fwVersion(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
-  *txNewStatus = SER_TX_RQST;
-  *rxNewStatus = SER_RX_FRZ;
-}
-
-
-void sctsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
-  *txNewStatus = SER_TX_RQST;
-  *rxNewStatus = SER_RX_FRZ;
-}
-
-
-void pxlsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
-  *txNewStatus = SER_TX_RQST;
-  *rxNewStatus = SER_RX_FRZ;
-}
-
 
 // Handler for all requests coming in from serial port
 void serialRqstHandler(serial_obj_t *serialObj) {
@@ -153,32 +136,32 @@ void serialRqstHandler(serial_obj_t *serialObj) {
   switch(serialObj->pendingRqst) {
   case RQST_SER_NUM:
     {
-      serialNum(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)), &serialObj->rxStatus, &serialObj->txStatus);
       break;
     }
   case RQST_FW_VERS:
     {
-      fwVersion(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)), &serialObj->rxStatus, &serialObj->txStatus);
       break;
     }
   case RQST_SCTS_MGMT:
     {
-      sctsManagement(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)), &serialObj->rxStatus, &serialObj->txStatus);
       break;
     }
   case RQST_PXLS_MGMT:
     {
-      pxlsManagement(&serialObj->TX, &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)), &serialObj->rxStatus, &serialObj->txStatus);
       break;
     }
-  case RQST_SETUP_SCT:
+  case RQST_CONFIG_BRD:
     {
-      // Byte [0] = pixel count
-      // Byte [1] = LED brightness
-      // Byte [2] = bool to set the section as a single pixel or not
-      uint8_t pxlCount = serialObj->RX.buffer[0];
-      bool sctAsPxl = serialObj->RX.buffer[1];
-      setupSection(pxlCount, 50, sctAsPxl);
+      uint8_t coreDataLen = 2;
+      for (uint8_t i = 0; i < serialObj->RX.mssgLen; i += coreDataLen) {
+        uint8_t sectionIndex = serialObj->RX.buffer[i];
+        uint8_t pixelCount = serialObj->RX.buffer[i + 1];
+        configSct(sectionIndex, pixelCount);
+      }
     }
   case RQST_NONE:
     {
@@ -290,3 +273,30 @@ void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes
 
 //**********    DEBUG FUNCTION   ************//
 
+
+// void serialNum(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+//   *txNewStatus = SER_TX_RQST;
+//   *rxNewStatus = SER_RX_FRZ;
+// }
+
+
+// void fwVersion(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
+//   *txNewStatus = SER_TX_RQST;
+//   *rxNewStatus = SER_RX_FRZ;
+// }
+
+
+// void sctsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
+//   *txNewStatus = SER_TX_RQST;
+//   *rxNewStatus = SER_RX_FRZ;
+// }
+
+
+// void pxlsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
+//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+//   *txNewStatus = SER_TX_RQST;
+//   *rxNewStatus = SER_RX_FRZ;
+// }
