@@ -63,7 +63,7 @@ board_infos_ptrs_t ptrBoardInfos = {
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-
+void configSct(uint8_t sctIndex, uint8_t pxlCount);
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
@@ -73,6 +73,19 @@ board_infos_ptrs_t ptrBoardInfos = {
 
 
 //**********    GLOBAL FUNC DEFINITION   ************//
+
+/// @brief Called when a board configuration command is received through serial (in SerialRequestHandler, Serial_lib.cpp)
+///        coreDataLen variable must reflect the amount of info contained in the sctInfoTuple attr in Python code (index, pxlCount), so 2
+/// @param serialBuffer parsed and decoded message contained in serial buffer [byte array]
+/// @param mssgLen length of RX message (without command byte)
+void configBrd(byte serialBuffer[], uint8_t mssgLen) {
+  uint8_t coreDataLen = 2;
+    for (uint8_t i = 0; i < mssgLen; i += coreDataLen) {
+      uint8_t sctID = serialBuffer[i];
+      uint8_t pixelCount = serialBuffer[i + 1];
+      configSct(sctID, pixelCount);
+    }
+}
 
 board_infos_ptrs_t getBoardInfosPtrs() {
   return ptrBoardInfos;
@@ -88,7 +101,7 @@ bool remainingSctsPins() {
   return(sectionsInfo.assigned < sectionsInfo.capacity);
 }
 
-// Only called within createSection() func
+// Only called within setupSection() func
 void sectionsMgmtAdd() {
   if(sectionsInfo.remaining) {
     sectionsInfo.assigned++;
@@ -96,7 +109,7 @@ void sectionsMgmtAdd() {
   }
 }
 
-// Only called within createSection() func
+// Only called within setupSection() func
 void pixelsMgmtAdd(uint8_t spaceFilled) {
   if(pixelsInfo.remaining) {
     pixelsInfo.assigned += spaceFilled;
@@ -104,7 +117,7 @@ void pixelsMgmtAdd(uint8_t spaceFilled) {
   }
 }
 
-// Only called within resetSection() and clearSection() funcs
+// Only called within editSection() and clearSection() funcs
 void sectionsMgmtRemove() {
   if(sectionsInfo.assigned) {
     sectionsInfo.assigned--;
@@ -112,7 +125,7 @@ void sectionsMgmtRemove() {
   }
 }
 
-// Only called within resetSection() and clearSection() funcs
+// Only called within editSection() and clearSection() funcs
 void pixelsMgmtRemove(uint8_t spaceFreed) {
   if(pixelsInfo.assigned && (pixelsInfo.assigned - spaceFreed >= 0)) {
     pixelsInfo.assigned -= spaceFreed;
@@ -134,15 +147,6 @@ bool eepromBootSaveCheck(void) {
     }
   }
   return(configFromEeprom);
-}
-
-/// @brief Configure sections with info received through serial
-/// @param sctIndex 
-/// @param pxlCount 
-void configSct(uint8_t sctIndex, uint8_t pxlCount) {
-  if(!getSctInfos(sctIndex).nbrOfPxls) {
-    setupSection(pxlCount);
-  }
 }
 
 // Func to reset the eeprom's content
@@ -181,6 +185,19 @@ uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_
 
 //**********    LOCAL FUNC DEFINITION   ************//
 
-
+/// @brief Configure/Modify/Delete sections with info received through serial
+/// @param sctIndex Index of the section
+/// @param pxlCount Number of pixels to be included in section
+void configSct(uint8_t sctIndex, uint8_t pxlCount) {
+  if(sctIndex == getSctIndexTracker()) {
+    setupSection(pxlCount);
+  }
+  else if(!pxlCount) {
+    clearSection(sctIndex);
+  }
+  else {
+    editSection(sctIndex, pxlCount);
+  }
+}
 
 //**********    LOCAL FUNC DEFINITION   ************//

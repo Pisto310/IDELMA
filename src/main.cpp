@@ -93,15 +93,6 @@ void setup() {
   //   setupFromEepromSave();
   // }
   
-  // setupSection(6, 10);
-  // setupSection(6, 255);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
-  // setupSection(6, brightnessLED);
   // eepromMemCheck();
 
   // stripSetupFromEeprom();
@@ -113,6 +104,17 @@ void setup() {
   // saveSctsConfig();
 
   // eepromPxlInfoRead();
+
+  // byte test[6] = {0, 5, 1, 2, 2, 6};
+  // byte testt[6] = {0, 3, 1, 6, 2, 0};
+
+  // configBrd(test, 6);
+
+  // dumpRam(Serial, &ramStart, 2480);
+
+  // configBrd(testt, 6);
+
+  // dumpRam(Serial, &ramStart, 2480);
 
   //*************   STRIP AND LEDS SET-UP   *************//
   

@@ -48,7 +48,7 @@ typedef struct PixelInfos {
 
 // struct to store the info of a section of pixel
 typedef struct SectionInfos {
-  uint8_t nbrOfPxls;
+  uint8_t pxlCount;
   uint8_t setBrightness;
 }section_info_t;
 
@@ -83,13 +83,15 @@ extern pixel_info_t* ptrPxlInfo;
 
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
-void setupSection(uint8_t pxlCount, uint8_t maxBrightness = 50, bool sctsAsPxl = false);
-void resetSection(uint8_t section, uint8_t newNbrOfLEDs, uint8_t maxBrightness = 50);
+void setupSection(uint8_t pxlCount, uint8_t brightness = 50, bool sctsAsPxl = false);
+void clearSection(uint8_t section);
+void editSection(uint8_t section, uint8_t rxedPxlCount);
                 
                 // TEMPORARY //
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
                 // TEMPORARY //
 
+uint8_t getSctIndexTracker();
 section_info_t getSctInfos(uint8_t index);
 
 void setupSaveToEeprom(void);
@@ -99,7 +101,7 @@ void eepromMemCheck(void);
 
 void pixelActionsHandler(void);
 
-// void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t maxBrightness, uint32_t startColor = 0);
+// void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t brightness, uint32_t startColor = 0);
 // void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);
 
 // void pxlIterator(uint8_t sctCount);
@@ -123,4 +125,4 @@ void stripOFF(uint8_t section);
 
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
-#endif
+#endif  /*  SK6812_H_ */

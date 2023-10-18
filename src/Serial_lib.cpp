@@ -15,7 +15,7 @@ Description : All things serial lib source file
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
-const char acknowledge = 0x06;
+const char ack         = 0x06;
 const char lineFeed    = '\n';
 const char spaceChar   = ' ';
 
@@ -119,49 +119,56 @@ void serialTxCheck(serial_obj_t *serialObj) {
   }
 }
 
+
 /// @brief Encodes the metadata info on the tx buffer and sends it over serial to the requester
-/// @param ser serial buffer type variable
-/// @param ptr2MetaData pointer to the metadata info to send
-/// @param rxNewStatus pointer to the RX serial status of a serial object type struct
-/// @param txNewStatus pointer to the TX serial status of a serial object type struct
-void sendMetaData(ser_buffer_t *ser, byte *ptr2MetaData, uint8_t metaDataBlockSize, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-  ser->mssgLen = txDataEncoding(ser->buffer, ptr2MetaData, metaDataBlockSize);
-  *txNewStatus = SER_TX_RQST;
-  *rxNewStatus = SER_RX_FRZ;
+/// @param serialObj 
+/// @param ptr2MetaData 
+/// @param metaDataBlockSize 
+void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataBlockSize) {
+  serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, ptr2MetaData, metaDataBlockSize);
+  serialObj->txStatus = SER_TX_RQST;
+  serialObj->rxStatus = SER_RX_FRZ;
 }
 
-// Handler for all requests coming in from serial port
+
+/// @brief Sends an "ACK" char over serial to let the PC know the request has been processed
+/// @param serialObj 
+void sendAck(serial_obj_t *serialObj) {
+  serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, (byte*) &ack, sizeof(ack));
+  serialObj->txStatus = SER_TX_RQST;
+  serialObj->rxStatus = SER_RX_FRZ;
+}
+
+
+/// @brief Handles the necessary action to do after having received a command thru serial
+/// @param serialObj 
 void serialRqstHandler(serial_obj_t *serialObj) {
   
   switch(serialObj->pendingRqst) {
   case RQST_SER_NUM:
     {
-      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)), &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
       break;
     }
   case RQST_FW_VERS:
     {
-      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)), &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
       break;
     }
   case RQST_SCTS_MGMT:
     {
-      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)), &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
       break;
     }
   case RQST_PXLS_MGMT:
     {
-      sendMetaData(&serialObj->TX, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)), &serialObj->rxStatus, &serialObj->txStatus);
+      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
       break;
     }
   case RQST_CONFIG_BRD:
     {
-      uint8_t coreDataLen = 2;
-      for (uint8_t i = 0; i < serialObj->RX.mssgLen; i += coreDataLen) {
-        uint8_t sectionIndex = serialObj->RX.buffer[i];
-        uint8_t pixelCount = serialObj->RX.buffer[i + 1];
-        configSct(sectionIndex, pixelCount);
-      }
+      configBrd(serialObj->RX.buffer, serialObj->RX.mssgLen);
+      sendAck(serialObj);
     }
   case RQST_NONE:
     {

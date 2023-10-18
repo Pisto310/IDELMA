@@ -40,7 +40,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 /* ------------- EEPROM SECTION ------------- */
 
 
-/* --------- PHYSICAL PINS OF MCU --------- */
+/* ---------- PHYSICAL PINS OF MCU ---------- */
 
 // maximum number of sections that are possible to instanciate w/ the Arduino Mega
 #define MAX_NO_SCTS         12
@@ -59,8 +59,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 #define PIN_SCT_10          12
 #define PIN_SCT_11          13
 
-/* --------- PHYSICAL PINS OF MCU --------- */
-
+/* ---------- PHYSICAL PINS OF MCU ---------- */
 
 
 //**********    GLOBAL TYPES DECLARATION   ************//
@@ -84,18 +83,6 @@ typedef struct BoardInfosPtrs {
   mutable_brdInfo_t* pixelsInfoPtr;
 }board_infos_ptrs_t;
 
-typedef struct {
-  byte maxAllowed;             // maximum numbers of sections allowed, defined by a macro & limited by usable pins on MCU
-  byte stillAvailable;         // shows how many sections (pins) are still available
-  byte currentlyUsed;          // keeps track of the number of sections initialized
-}sections_usage_t;
-
-typedef struct {  
-  byte maxAllowed;             // maximum numbers of pixels allowed since heap space is set at start of code
-  byte stillAvailable;         // shows how many blocks of pixelInfo_t size are still available in the heap
-  byte currentlyUsed;          // keeps track of the blocks of heap used to store pixelInfo_t objects
-}pixels_usage_t;
-
 //**********    GLOBAL TYPES DECLARATION   ************//
 
 
@@ -110,7 +97,7 @@ void pixelsMgmtAdd(uint8_t spaceFilled);
 void sectionsMgmtRemove();
 void pixelsMgmtRemove(uint8_t spaceFreed);
 
-void configSct(uint8_t sctIndex, uint8_t pxlCount);
+void configBrd(byte serialBuffer[], uint8_t mssgLen);
 
 bool eepromBootSaveCheck(void);
 
