@@ -1,14 +1,15 @@
 /*
 Created on: november 20 2021
 Author : J-C Rodrigue
-Description : Everything associated to the board, from user-defined serial number to saved set-up configs
+Description : Every metadatas, pins configuration and size/limitation set for MCU
 */
 
 #ifndef BOARD_H_
 #define BOARD_H_
 
 #include "Arduino.h"
-#include "SK6812.h"
+#include "User_Lib.h"
+#include "EEPROM_lib.h"
 
 #define SERIAL_NUMBER                    0x12345678U
 
@@ -18,26 +19,16 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 #define BOARD_INFO_STRUCT_LEN(_infoStruct)    (sizeof(_infoStruct))
 
-#define SERIAL_BUFFER_SIZE              64
+#define SERIAL_BUFFER_SIZE              64U
 
 #define BYTE_SIZE                  (sizeof(byte))
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
 
-#define PXLINFO_HEAP_SIZE               100
+#define PXLINFO_HEAP_SIZE              100U
 #define PXLINFO_MAX_INDEX(_size)    (_size - 1)
 
 /* --------- MEMORY HEAP MANAGEMENT --------- */
-
-
-/* ------------- EEPROM SECTION ------------- */
-
-#define EEPROM_SCTS_MGMT_PAGE            0
-
-#define EEPROM_PAGE_SIZE               64U
-#define EEPROM_PAGE_ADDR(_pageNumber)       (EEPROM_PAGE_SIZE * _pageNumber)
-
-/* ------------- EEPROM SECTION ------------- */
 
 
 /* ---------- PHYSICAL PINS OF MCU ---------- */
@@ -88,6 +79,10 @@ typedef struct BoardInfosPtrs {
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 
+void bootUp();
+
+void configBrd(byte serialBuffer[], uint8_t mssgLen);
+
 board_infos_ptrs_t getBoardInfosPtrs();
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
@@ -96,8 +91,6 @@ void sectionsMgmtAdd();
 void pixelsMgmtAdd(uint8_t spaceFilled);
 void sectionsMgmtRemove();
 void pixelsMgmtRemove(uint8_t spaceFreed);
-
-void configBrd(byte serialBuffer[], uint8_t mssgLen);
 
 bool eepromBootSaveCheck(void);
 

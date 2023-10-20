@@ -5,8 +5,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 */
 
 #include "Board.h"
-#include "User_Lib.h"
-#include <EEPROM.h>
+#include "SK6812.h"
 
 //**********    LOCAL VARIABLES   ************//
 
@@ -74,8 +73,16 @@ void configSct(uint8_t sctIndex, uint8_t pxlCount);
 
 //**********    GLOBAL FUNC DEFINITION   ************//
 
-/// @brief Called when a board configuration command is received through serial (in SerialRequestHandler, Serial_lib.cpp)
-///        coreDataLen variable must reflect the amount of info contained in the sctInfoTuple attr in Python code (index, pxlCount), so 2
+
+void bootUp() {
+  sctsConfigRead();
+}
+
+
+/// @brief Called when a board configuration command is received through serial
+///        (in SerialRequestHandler, Serial_lib.cpp).
+///        coreDataLen variable must reflect the amount of info contained in the 
+///        sctInfoTuple attr in Python code (index, pxlCount), so 2
 /// @param serialBuffer parsed and decoded message contained in serial buffer [byte array]
 /// @param mssgLen length of RX message (without command byte)
 void configBrd(byte serialBuffer[], uint8_t mssgLen) {
@@ -87,21 +94,30 @@ void configBrd(byte serialBuffer[], uint8_t mssgLen) {
     }
 }
 
+
+/// @brief Fetch the struct containing all pointers to the board metadata
+/// @return The local ptrBoardInfos struct
 board_infos_ptrs_t getBoardInfosPtrs() {
   return ptrBoardInfos;
 }
 
-// returns either True of False if enough heap space is available to create the number of pixels asked for
+
+/// @brief Indicates if there is enough heap space to create required pixels
+/// @param spaceNeeded Number of pixels to be created
+/// @return True if enough space; False otherwise
 bool remainingHeapSpace(uint8_t spaceNeeded) {
   return(pixelsInfo.remaining >= spaceNeeded);
 }
 
-// returns True or False depending if pins are still available to create anymore sections
+
+/// @brief Indicates if there are still pins available to create a new sct
+/// @return True if enough space; False otherwise
 bool remainingSctsPins() {
   return(sectionsInfo.assigned < sectionsInfo.capacity);
 }
 
-// Only called within setupSection() func
+
+/// @brief Updates the sectionInfo attributes when a section is added
 void sectionsMgmtAdd() {
   if(sectionsInfo.remaining) {
     sectionsInfo.assigned++;
@@ -109,7 +125,11 @@ void sectionsMgmtAdd() {
   }
 }
 
-// Only called within setupSection() func
+
+/// @brief Updates the pixelInfo attributes with how many pixels
+///        were created along with a new section. Also called if
+///        pixels were added to an existing section
+/// @param spaceFilled Pixels added to new section or existing one 
 void pixelsMgmtAdd(uint8_t spaceFilled) {
   if(pixelsInfo.remaining) {
     pixelsInfo.assigned += spaceFilled;
@@ -117,7 +137,8 @@ void pixelsMgmtAdd(uint8_t spaceFilled) {
   }
 }
 
-// Only called within editSection() and clearSection() funcs
+
+/// @brief Updates the sectionInfo attributes when a section is removed
 void sectionsMgmtRemove() {
   if(sectionsInfo.assigned) {
     sectionsInfo.assigned--;
@@ -125,7 +146,14 @@ void sectionsMgmtRemove() {
   }
 }
 
+
 // Only called within editSection() and clearSection() funcs
+
+/// @brief Updates the pixelInfo attributes with how many pixels
+///        were freed from removing pixels from a section. Since 
+///        clearing a section removes all its pixels, it also
+///        is invoked in a section deletion
+/// @param spaceFreed 
 void pixelsMgmtRemove(uint8_t spaceFreed) {
   if(pixelsInfo.assigned && (pixelsInfo.assigned - spaceFreed >= 0)) {
     pixelsInfo.assigned -= spaceFreed;
@@ -133,21 +161,23 @@ void pixelsMgmtRemove(uint8_t spaceFreed) {
   }
 }
 
-bool eepromBootSaveCheck(void) {
-  
-  // Tells how many byte should be saved in eeprom 1st page according to macro values
-  // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
-  uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
-  bool configFromEeprom = 1;
 
-  for(uint16_t eepromAddr = EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
-    if(EEPROM.read(eepromAddr) > MAX_NO_SCTS || EEPROM.read(eepromAddr) == 0) {
-      configFromEeprom = !configFromEeprom;
-      break;
-    }
-  }
-  return(configFromEeprom);
-}
+// bool eepromBootSaveCheck(void) {
+  
+//   // Tells how many byte should be saved in eeprom 1st page according to macro values
+//   // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
+//   uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
+//   bool configFromEeprom = 1;
+
+//   for(uint16_t eepromAddr = EEPROM_PAGE_IDX(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
+//     if(EEPROM.read(eepromAddr) > MAX_NO_SCTS || EEPROM.read(eepromAddr) == 0) {
+//       configFromEeprom = !configFromEeprom;
+//       break;
+//     }
+//   }
+//   return(configFromEeprom);
+// }
+
 
 // Func to reset the eeprom's content
 // Note that this operation takes multiple seconds
@@ -157,25 +187,6 @@ void eepromReset(void) {
   }
 }
 
-uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_t numBlocks) {
-
-  uint16_t totalBytes = blockSize * numBlocks;
-
-  for(uint16_t i = 0; i < totalBytes; i++) {
-
-    EEPROM.update(eepromAddr, *(ramAddr + (i * BYTE_SIZE)));
-    eepromAddr += BYTE_SIZE;
-
-    // Serial.print((unsigned long) (ramStartAddr + i), HEX);
-    // Serial.print(' ');
-    // Serial.print(*(ramStartAddr + i), HEX);
-    // Serial.print(' ');
-    // Serial.print(eepromStartAddr, HEX);
-    // Serial.print(' ');
-    // Serial.println(EEPROM.read(eepromStartAddr), HEX);
-  }
-  return(eepromAddr);
-}
 
 //**********    GLOBAL FUNC DEFINITION   ************//
 
@@ -184,6 +195,7 @@ uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_
 
 
 //**********    LOCAL FUNC DEFINITION   ************//
+
 
 /// @brief Configure/Modify/Delete sections with info received through serial
 /// @param sctIndex Index of the section
@@ -199,5 +211,6 @@ void configSct(uint8_t sctIndex, uint8_t pxlCount) {
     editSection(sctIndex, pxlCount);
   }
 }
+
 
 //**********    LOCAL FUNC DEFINITION   ************//

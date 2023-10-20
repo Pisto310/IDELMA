@@ -5,6 +5,7 @@
 #include "SK6812.h"
 #include "Serial_lib.h"
 #include "Dump.h"
+#include "EEPROM_lib.h"
 
 //HC-06 module address 00-14-03-05-5A-D5
 
@@ -76,6 +77,8 @@ void setup() {
   usbSerial.serialPort = &Serial;
   //Serial.setTimeout(1);
 
+  bootUp();
+
   //*************   BT MODULE SET-UP   **************//
   
   /*
@@ -89,32 +92,30 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  // if(eepromBootSaveCheck()) {
-  //   setupFromEepromSave();
-  // }
-  
-  // eepromMemCheck();
-
-  // stripSetupFromEeprom();
-
-  // saveConfig();
-
-  // eepromReset();
-
-  // saveSctsConfig();
-
-  // eepromPxlInfoRead();
-
-  // byte test[6] = {0, 5, 1, 2, 2, 6};
-  // byte testt[6] = {0, 3, 1, 6, 2, 0};
+  // byte test[6] = {0, 5, 1, 2, 2, 4};
+  // byte testt[6] = {0, 3, 1, 4, 2, 0};
+  // byte testtt[6] = {0, 3, 1, 4, 2, 6};
 
   // configBrd(test, 6);
+  // updatingPixelAttr(0, 2, 0xFFFFFFFF);
+  // updatingPixelAttr(0, 4, 0xFFFFFFFF);
+  // updatingPixelAttr(1, 1, 0xDDDDDDDD);
+  // updatingPixelAttr(2, 1, 0xAAAAAAAA);
+  // updatingPixelAttr(2, 3, 0xAAAAAAAA);
 
   // dumpRam(Serial, &ramStart, 2480);
 
   // configBrd(testt, 6);
 
+  // configBrd(testtt, 6);
+
+  // updatingPixelAttr(2, 0, 0x99999999);
+  // updatingPixelAttr(2, 2, 0x99999999);
+  // updatingPixelAttr(2, 5, 0x99999999);
+
   // dumpRam(Serial, &ramStart, 2480);
+
+  // sctsConfigSave();
 
   //*************   STRIP AND LEDS SET-UP   *************//
   

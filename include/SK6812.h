@@ -6,37 +6,37 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #define SK6812_H_
 
 #include "Adafruit_NeoPixel.h"
-#include "Arduino.h"
-#include "User_Lib.h"
 #include "Board.h"
+#include "EEPROM_lib.h"
+#include "User_Lib.h"
 
 
 typedef enum PixelStates{
-  IDLE,                           // LED is ready for action
-  HSV_FADE,                       // LED is in the process of fading in HSV color space
-  RGB_FADE,                       // LED is in the process of fading in RGB color space
-  BLINK_ONCE,                     // LED is set to blink only once
-  BLINK,                          // LED is blinking
-  SPARKLE                         // LED is in the process of sparkling
+  IDLE,                                     // LED is ready for action
+  HSV_FADE,                                 // LED is in the process of fading in HSV color space
+  RGB_FADE,                                 // LED is in the process of fading in RGB color space
+  BLINK_ONCE,                               // LED is set to blink only once
+  BLINK,                                    // LED is blinking
+  SPARKLE                                   // LED is in the process of sparkling
 }pixel_state_t;
 
 typedef struct PixelActionTime {
-  int32_t actionOneTime;          // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
-  int32_t actionTwoTime;          // time between each step for sat (hueFade) or grn (rgbFade)
-  int32_t actionThreeTime;        // time between each step for val (hueFade) or blu (rgbFade)
+  int32_t actionOneTime;                    // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
+  int32_t actionTwoTime;                    // time between each step for sat (hueFade) or grn (rgbFade)
+  int32_t actionThreeTime;                  // time between each step for val (hueFade) or blu (rgbFade)
 }pixel_actionTime_t;
 
 typedef struct PixelActionStartTime {
-  uint32_t actionOneStart;        // start time for action one
-  uint32_t actionTwoStart;        // start time for action two
-  uint32_t actionThreeStart;      // start time for action three
+  uint32_t actionOneStart;                  // start time for action one
+  uint32_t actionTwoStart;                  // start time for action two
+  uint32_t actionThreeStart;                // start time for action three
 }pixel_actionStart_t;
 
 // struct to store the info of each pixel
 // each struct occupies a space of 44 bytes
 typedef struct PixelInfos {
-  uint8_t             pxlSct;               // draws a parallel to a neopxlObj array for easier matching when doing actions
-  uint8_t             pxlNbr;               // pixel number in the strip/neopxlObj
+  uint8_t             pxlSctID;             // draws a parallel to a neopxlObj array for easier matching when doing actions
+  uint8_t             pxlID;                // pixel number in the strip/neopxlObj
   pixel_state_t       pxlState;             // pixel state
   pixel_actionTime_t  pxlActionTimes;
   pixel_actionStart_t pxlActionStart;
@@ -49,7 +49,7 @@ typedef struct PixelInfos {
 // struct to store the info of a section of pixel
 typedef struct SectionInfos {
   uint8_t pxlCount;
-  uint8_t setBrightness;
+  uint8_t brightness;
 }section_info_t;
 
 
@@ -94,10 +94,13 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 uint8_t getSctIndexTracker();
 section_info_t getSctInfos(uint8_t index);
 
-void setupSaveToEeprom(void);
-void setupFromEepromSave(void);
+void sctsConfigSave();
+void sctsConfigRead();
 
-void eepromMemCheck(void);
+// void setupSaveToEeprom(void);
+// void setupFromEepromSave(void);
+
+// void eepromMemCheck(void);
 
 void pixelActionsHandler(void);
 

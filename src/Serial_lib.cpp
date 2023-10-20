@@ -132,7 +132,7 @@ void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataB
 
 
 /// @brief Sends an "ACK" char over serial to let the PC know the request has been processed
-/// @param serialObj 
+/// @param serialObj Serial Object to send the ACK signal to
 void sendAck(serial_obj_t *serialObj) {
   serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, (byte*) &ack, sizeof(ack));
   serialObj->txStatus = SER_TX_RQST;

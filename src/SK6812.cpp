@@ -5,7 +5,6 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 // My set-up, when using the object's setPixelColor method is set as a GRBW string
 
 #include "SK6812.h"
-#include <EEPROM.h>
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
@@ -42,6 +41,11 @@ section_info_t sectionInfoArr[MAX_NO_SCTS];
 
 static uint8_t sctIndexTracker = 0;
 
+eeprom_chapter_t sctInfoChap = {
+  .startIdx   = EEPROM_PAGE_IDX(EEPROM_SCTS_INFO_START_PAGE),
+  .bytesCount = (sizeof(section_info_t) * MAX_NO_SCTS)
+};
+
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
 
@@ -73,7 +77,8 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 /// @brief Called to setup a section
 /// @param pxlCount Number of pixel contained in the instanciated section
 /// @param brightness Brightness setting, 0=minimum (off), 255=brightest
-/// @param sctAsPxl Indicates if all LEDs separate entities or one single entity (affects number of pixel_info_t obj created)
+/// @param sctAsPxl Indicates if all LEDs separate entities or one single 
+///                 entity (affects number of pixel_info_t obj created)
 void setupSection(uint8_t pxlCount, uint8_t brightness, bool sctAsPxl) {
   if(sctAsPxl) {
     if(remainingHeapSpace(1) && remainingSctsPins()) {
@@ -91,8 +96,13 @@ void setupSection(uint8_t pxlCount, uint8_t brightness, bool sctAsPxl) {
   sectionsMgmtAdd();
 
   // updating the section info matrix
-  sectionInfoArr[sctIndexTracker].pxlCount     = pxlCount;
-  sectionInfoArr[sctIndexTracker].setBrightness = brightness;
+  sectionInfoArr[sctIndexTracker].pxlCount   = pxlCount;
+  sectionInfoArr[sctIndexTracker].brightness = brightness;
+
+  //**debug**//
+  stripColorFill(sctIndexTracker, 0x3B659C00);
+  //**debug**//
+
   sctIndexTracker++;
 }
 
@@ -126,8 +136,8 @@ void setPxlInfo(uint8_t pxlCount) {
   ptrPxlInfo += pxlCount;
 
   for(uint8_t pxlNbr = 0; pxlNbr < pxlCount; pxlNbr++) {
-    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlSct   = sctIndexTracker;
-    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlNbr   = pxlNbr;
+    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlSctID = sctIndexTracker;
+    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlID    = pxlNbr;
     (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlState = IDLE;
   }
 }
@@ -188,17 +198,47 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
 }
 
 
-// Save basic sections and pixels config infos into the EEPROM's first page
-// Content to save : number of sections, number of pixels in each sections and set brightness for each section
-// Basically saving the section_info_t obj matrix
-// void setupSaveToEeprom(void) {
-  
-//   uint16_t addrTracker;
+/// @brief Verify if a previous section config save is contained in
+///        the EEPROM.
+/// @return A boolean indicating if there is a saved config (1) or not (0)
+bool checkSctsConfigSave() {
+  if (eepromByteRead(sctInfoChap.startIdx)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
 
-//   // First, we save the number of sections created at the start of the EEPROM page
-//   addrTracker = eepromSave(EEPROM_PAGE_ADDR(EEPROM_SCTS_MGMT_PAGE), (byte*) &sectionIndex, 1, sizeof(sectionIndex));
-//   eepromSave(addrTracker, (byte*) sectionInfoArr, 1, sizeof(sectionInfoArr));
-// }
+
+/// @brief Save user configuration into EEPROM for future
+///        boot-up use.
+void sctsConfigSave() {
+  eepromWriteChap(sctInfoChap, (byte*) sectionInfoArr);
+}
+
+
+/// @brief Reads and extract the saved sections configuration
+///        in EEPROM if there is one. Called at boot-up.
+void sctsConfigRead() {
+  // eepromReset(sctInfoChap);
+  if (checkSctsConfigSave()) {
+    eepromReadChap(sctInfoChap, (byte*) sectionInfoArr);
+  }
+}
+
+
+/// @brief Setup board from a peviously saved configuration
+void setupFromSave() {
+  for (uint8_t i = 0; i < MAX_NO_SCTS; i++) {
+    uint8_t pixelCount = sectionInfoArr[i].pxlCount;
+    uint8_t brightness = sectionInfoArr[i].brightness;
+    if (pixelCount && brightness) {
+      setupSection(pixelCount, brightness);
+    }
+  }
+}
+
 
 // Setting up the board from a saved setup config
 // void setupFromEepromSave(void) {
@@ -839,13 +879,24 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 
 //***********    LOCAL FUNCS DEFINITION    ***********//
 
-void removingPxlsFromSct(uint8_t section, uint8_t newPxlCount) {  
-  uint8_t  freedHeapBlocks = sectionInfoArr[section].pxlCount - newPxlCount;     // Expressed in terms of a number of pixel_info_t OBJ
+
+/// @brief Removes pixels in any given section. It's done in a bare-metal kind of way,
+///        which is by shifting affected bytes in the heap. The number of bytes to shift
+///        is dependent upon block size (pixel_info_t byte size) and how many blocks
+///        there are to shift. When reaching the new address of ptrPxlInfo, all bytes
+///        are then overwritten with 0x00 as a way to reset them for future use.
+///        Note that this 0x00 byte reset isn't executed when erasing the last sct
+///        because it will be updated when the next one is created
+/// @param sctID Section from which to remove pixels
+/// @param newPxlCount Updated pixel count (must be lower than original)
+void removingPxlsFromSct(uint8_t sctID, uint8_t newPxlCount) {  
+  
+  uint8_t  freedHeapBlocks = sectionInfoArr[sctID].pxlCount - newPxlCount;     // Expressed in terms of a number of pixel_info_t OBJ
   uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
 
   byte *heapEraseAddr           = (byte*)ptrPxlInfo - freedHeapBytes;
-  byte *heapOverWriteDestAddr   = (byte*)(arrPtrPxlInfo[section] + newPxlCount);
-  byte *heapOverWriteSourceAddr = (byte*)(arrPtrPxlInfo[section] + newPxlCount) + freedHeapBytes;
+  byte *heapOverWriteDestAddr   = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount);
+  byte *heapOverWriteSourceAddr = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount) + freedHeapBytes;
 
   uint8_t pxlInfoToShift = 0;
 
@@ -853,7 +904,7 @@ void removingPxlsFromSct(uint8_t section, uint8_t newPxlCount) {
 
   // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
   // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
-  for(uint8_t i = section + 1; i < sctIndexTracker; i++) {
+  for(uint8_t i = sctID + 1; i < sctIndexTracker; i++) {
     pxlInfoToShift += sectionInfoArr[i].pxlCount;
     arrPtrPxlInfo[i] -= freedHeapBlocks;
   }
@@ -872,26 +923,34 @@ void removingPxlsFromSct(uint8_t section, uint8_t newPxlCount) {
   }
 
   // Updating length of neopixel Obj, section info matrix & board infos
-  neopxlObjArr[section].updateLength((uint16_t)newPxlCount);
-  pixelsMgmtRemove(sectionInfoArr[section].pxlCount - newPxlCount);
-  sectionInfoArr[section].pxlCount = newPxlCount;
+  neopxlObjArr[sctID].updateLength((uint16_t)newPxlCount);
+  pixelsMgmtRemove(sectionInfoArr[sctID].pxlCount - newPxlCount);
+  sectionInfoArr[sctID].pxlCount = newPxlCount;
 }
 
-void addingPxlsToSct(uint8_t section, uint8_t newPxlCount) {
 
-  uint8_t  toBeUsedHeapBlocks = newPxlCount - sectionInfoArr[section].pxlCount;             // Expressed in terms of a number of pixel_info_t OBJ
+/// @brief Adds pixels in any given section. It's done in a bare-metal kind of way,
+///        which is by shifting affected bytes in the heap. The number of bytes to shift
+///        is dependent upon block size (pixel_info_t byte size) and how many blocks
+///        there are to shift. Once the last address of the new pixel blocks is reached,
+///        existing bytes are overwritten with 0x00 to prevent any strange behavior.
+/// @param sctID Section from which to add pixels
+/// @param newPxlCount Updated pixel count (must be higher than original)
+void addingPxlsToSct(uint8_t sctID, uint8_t newPxlCount) {
+
+  uint8_t  toBeUsedHeapBlocks = newPxlCount - sectionInfoArr[sctID].pxlCount;                 // Expressed in terms of a number of pixel_info_t OBJ
   uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
 
   byte *heapOverWriteDestAddr   = (byte*)ptrPxlInfo + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
   byte *heapOverWriteSourceAddr = (byte*)ptrPxlInfo - BYTE_SIZE;                              // Last addr where there is actual info
-  byte *heapMemClearAddr        = (byte*)(arrPtrPxlInfo[section] + newPxlCount) - BYTE_SIZE; // First addr where to erase the bytes to make room
+  byte *heapMemClearAddr        = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
 
   uint8_t pxlInfoToShift = 0;
 
   ptrPxlInfo = (pixel_info_t*)heapOverWriteDestAddr + BYTE_SIZE;
 
   // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
-  for(uint8_t i = section + 1; i < sctIndexTracker; i++) {
+  for(uint8_t i = sctID + 1; i < sctIndexTracker; i++) {
     pxlInfoToShift += sectionInfoArr[i].pxlCount;
     arrPtrPxlInfo[i] += toBeUsedHeapBlocks;
   }
@@ -910,16 +969,16 @@ void addingPxlsToSct(uint8_t section, uint8_t newPxlCount) {
   }
 
   // Updating the pixel info array with the newly created LEDs
-  for(uint8_t pxlNbr = sectionInfoArr[section].pxlCount; pxlNbr < newPxlCount; pxlNbr++) {
-      (arrPtrPxlInfo[section] + pxlNbr)->pxlSct   = section;
-      (arrPtrPxlInfo[section] + pxlNbr)->pxlNbr   = pxlNbr;
-      (arrPtrPxlInfo[section] + pxlNbr)->pxlState = IDLE;
+  for(uint8_t pxlNbr = sectionInfoArr[sctID].pxlCount; pxlNbr < newPxlCount; pxlNbr++) {
+      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlSctID = sctID;
+      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlID    = pxlNbr;
+      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlState = IDLE;
   }
 
   // Updating length of neopixel Obj, section info matrix & board infos
-  neopxlObjArr[section].updateLength((uint16_t)newPxlCount);
-  pixelsMgmtAdd(newPxlCount - sectionInfoArr[section].pxlCount);
-  sectionInfoArr[section].pxlCount = newPxlCount;
+  neopxlObjArr[sctID].updateLength((uint16_t)newPxlCount);
+  pixelsMgmtAdd(newPxlCount - sectionInfoArr[sctID].pxlCount);
+  sectionInfoArr[sctID].pxlCount = newPxlCount;
 }
 
 //***********    LOCAL FUNCS DEFINITION    ***********//
