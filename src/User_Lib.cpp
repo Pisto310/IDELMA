@@ -74,3 +74,19 @@ void digitSeparator(uint8_t number, uint8_t *divContainer, uint8_t *modContainer
   *divContainer = pgm_read_byte(&_divByTenLookUp[number]);
   *modContainer = number - (*divContainer * 10);
 }
+
+
+/// @brief User-made power of ten func. the pow() func
+///        include in 'math.h' isn't precise and returns
+///        wrong values qhen exponent is above 1...
+///        TO BE USED WITH UINT8_T CONTAINERS
+/// @param exponent Used for the calculation with a base 10
+///                 CANNOT BE ABOVE 2!!!
+uint8_t powOfTen(uint8_t exponent) {
+  uint8_t base = 10;
+  uint8_t result = 1;
+  for (uint8_t i = exponent; i > 0; i--) {
+    result *= base;
+  }
+  return result;
+}

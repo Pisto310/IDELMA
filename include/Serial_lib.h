@@ -51,6 +51,9 @@ typedef enum rqst_action {
   RQST_SCTS_MGMT,
   RQST_PXLS_MGMT,
   RQST_CONFIG_BRD = 10,
+  RQST_SAVE_CONFIG = 20,
+  RQST_ALL_OFF = 254,
+  RQST_SAVE_RESET = 255
 } rqst_action_t;
 
 typedef struct serial_buffer{

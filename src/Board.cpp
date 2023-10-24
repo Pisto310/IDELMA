@@ -162,30 +162,18 @@ void pixelsMgmtRemove(uint8_t spaceFreed) {
 }
 
 
-// bool eepromBootSaveCheck(void) {
-  
-//   // Tells how many byte should be saved in eeprom 1st page according to macro values
-//   // The + 1 indicates the first byte of the eeprom which is the number of sections previously assigned
-//   uint8_t eepromSctsConfigLen = (sizeof(section_info_t) * MAX_NO_SCTS) + 1;
-//   bool configFromEeprom = 1;
-
-//   for(uint16_t eepromAddr = EEPROM_PAGE_IDX(EEPROM_SCTS_MGMT_PAGE); eepromAddr < eepromSctsConfigLen; eepromAddr++) {
-//     if(EEPROM.read(eepromAddr) > MAX_NO_SCTS || EEPROM.read(eepromAddr) == 0) {
-//       configFromEeprom = !configFromEeprom;
-//       break;
-//     }
-//   }
-//   return(configFromEeprom);
-// }
+//******************************************           DEBUG           ************************************************//
+void eepromReset() {
+  sctsConfigRst();
+}
 
 
-// Func to reset the eeprom's content
-// Note that this operation takes multiple seconds
-void eepromReset(void) {
-  for(uint16_t i = 0; i < EEPROM.length(); i++) {
-    EEPROM.write(i, 0xFF);
+void allOff() {
+  for (uint8_t i = 0; i < getSctIndexTracker(); i++) {
+    stripOFF(i);
   }
 }
+//******************************************           DEBUG           ************************************************//
 
 
 //**********    GLOBAL FUNC DEFINITION   ************//

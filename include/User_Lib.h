@@ -45,5 +45,6 @@ uint32_t absVar(int32_t val);
 uint8_t tenTimesByteMultiplier(byte initialVal);
 uint8_t hundredTimesByteMultiplier(byte initialVal);
 void digitSeparator(uint8_t number, uint8_t *divContainer, uint8_t *modContainer);
+uint8_t powOfTen(uint8_t exponent);
 
 #endif

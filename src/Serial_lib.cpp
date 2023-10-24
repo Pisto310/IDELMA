@@ -7,6 +7,7 @@ Description : All things serial lib source file
 #include "Serial_lib.h"
 #include "User_Lib.h"
 #include "Board.h"
+#include "SK6812.h"
 
 #include <math.h>
 #include <string.h>
@@ -29,6 +30,7 @@ const char spaceChar   = ' ';
 void serialRqstHandler(serial_obj_t *serialObj);
 
 uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
+// uint8_t rxDataParsing(serial_obj_t *serialObj, ser_buffer_t *ser, rqst_action_t *receivedRqst);
 uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
 
 void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
@@ -60,9 +62,9 @@ void serialRxCheck(serial_obj_t *serialObj) {
   case SER_RX_CMPLT:
 
     serialObj->txStatus = SER_TX_IDLE;
+    // serialWrite(serialObj, serialObj->RX.buffer, 3);
+    // serialObj->RX.mssgLen = rxDataParsing(serialObj, &serialObj->RX, &serialObj->pendingRqst);
     serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
-    // clrBuffData(&serialObj->RX, serialObj->RX.bufferLen); 
-    // serialWrite(serialObj, serialObj->RX.buffer, serialObj->RX.bufferLen);
     serialObj->rxStatus = SER_RX_IDLE;
     serialRqstHandler(serialObj);
     break;
@@ -169,6 +171,25 @@ void serialRqstHandler(serial_obj_t *serialObj) {
     {
       configBrd(serialObj->RX.buffer, serialObj->RX.mssgLen);
       sendAck(serialObj);
+      break;
+    }
+  case RQST_SAVE_CONFIG:
+    {
+      sctsConfigSave();
+      sendAck(serialObj);
+      break;
+    }
+  case RQST_ALL_OFF:
+    {
+      allOff();
+      sendAck(serialObj);
+      break;
+    }
+  case RQST_SAVE_RESET:
+    {
+      eepromReset();
+      sendAck(serialObj);
+      break;
     }
   case RQST_NONE:
     {
@@ -185,16 +206,15 @@ void serialRqstHandler(serial_obj_t *serialObj) {
 
 
 // Basically, keeping the same logic as the messageParsing function in the python code
+// uint8_t rxDataParsing(serial_obj_t *serialObj, ser_buffer_t *ser, rqst_action_t *receivedRqst) 
 uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
-   
   bool rqstCheck = false;
   uint8_t unitsTracker = 0;
   uint8_t extractedNbr = 0;
-  uint8_t newLen = 0;
-  
+  uint8_t newLen = 0;  
   for(uint8_t i = 0; i < ser->mssgLen; i++) {
     if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
-      extractedNbr += convertAsciiToHex(ser->buffer[i]) * pow(10, unitsTracker);
+      extractedNbr += convertAsciiToHex(ser->buffer[i]) * powOfTen(unitsTracker);
       unitsTracker++;
     }
     else {
@@ -279,31 +299,3 @@ void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes
 }
 
 //**********    DEBUG FUNCTION   ************//
-
-
-// void serialNum(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
-//   *txNewStatus = SER_TX_RQST;
-//   *rxNewStatus = SER_RX_FRZ;
-// }
-
-
-// void fwVersion(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
-//   *txNewStatus = SER_TX_RQST;
-//   *rxNewStatus = SER_RX_FRZ;
-// }
-
-
-// void sctsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
-//   *txNewStatus = SER_TX_RQST;
-//   *rxNewStatus = SER_RX_FRZ;
-// }
-
-
-// void pxlsManagement(ser_buffer_t *ser, serial_rx_state *rxNewStatus, serial_tx_state *txNewStatus) {
-//   ser->mssgLen = txDataEncoding(ser->buffer, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
-//   *txNewStatus = SER_TX_RQST;
-//   *rxNewStatus = SER_RX_FRZ;
-// }

@@ -92,10 +92,10 @@ void pixelsMgmtAdd(uint8_t spaceFilled);
 void sectionsMgmtRemove();
 void pixelsMgmtRemove(uint8_t spaceFreed);
 
-bool eepromBootSaveCheck(void);
-
-void eepromReset(void);
-uint16_t eepromSave(uint16_t eepromAddr, byte* ramAddr, size_t blockSize, uint8_t numBlocks);
+//******************************************           DEBUG           ************************************************//
+void eepromReset();
+void allOff();
+//******************************************           DEBUG           ************************************************//
 
 //**********    GLOBAL FUNC DECLARATION   ************//
 

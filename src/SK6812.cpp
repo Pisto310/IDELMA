@@ -62,6 +62,8 @@ void setNeoPxl(uint8_t pxlCount, uint8_t brightness);
 
 void editPxlCount(uint8_t sctID, uint8_t newPxlCount);
 
+void setupFromSave();
+
 void removingPxlsFromSct(uint8_t section, uint8_t newPxlCount);
 void addingPxlsToSct(uint8_t section, uint8_t newPxlCount);
 
@@ -224,6 +226,15 @@ void sctsConfigRead() {
   // eepromReset(sctInfoChap);
   if (checkSctsConfigSave()) {
     eepromReadChap(sctInfoChap, (byte*) sectionInfoArr);
+    setupFromSave();
+  }
+}
+
+
+/// @brief Simple reset eeprom sct infos chap (for debug purposes)
+void sctsConfigRst() {
+  if (checkSctsConfigSave()) {
+    eepromReset(sctInfoChap);
   }
 }
 

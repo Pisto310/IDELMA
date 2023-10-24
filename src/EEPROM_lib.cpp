@@ -78,11 +78,11 @@ byte eepromByteRead(uint8_t eepromIdx) {
 void eepromReset(eeprom_chapter_t eepromChap) {
   for (uint16_t i = 0; i < (eepromChap.bytesCount); i++) {
     if (!overflowCheck(eepromChap.startIdx + i)) {
-      EEPROM.write(eepromChap.startIdx + i, 0x00);
+      EEPROM.update(eepromChap.startIdx + i, 0x00);
 
-      Serial.print(eepromChap.startIdx + i, HEX);
-      Serial.print(' ');
-      Serial.println(EEPROM.read(eepromChap.startIdx + i), HEX);
+      // Serial.print(eepromChap.startIdx + i, HEX);
+      // Serial.print(' ');
+      // Serial.println(EEPROM.read(eepromChap.startIdx + i), HEX);
     }
   }
 }

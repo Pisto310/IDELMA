@@ -96,6 +96,7 @@ section_info_t getSctInfos(uint8_t index);
 
 void sctsConfigSave();
 void sctsConfigRead();
+void sctsConfigRst();
 
 // void setupSaveToEeprom(void);
 // void setupFromEepromSave(void);
