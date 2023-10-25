@@ -93,6 +93,7 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
 
 uint8_t getSctIndexTracker();
 section_info_t getSctInfos(uint8_t index);
+section_info_t* getSctInfosPtr();
 
 void sctsConfigSave();
 void sctsConfigRead();

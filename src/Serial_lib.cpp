@@ -29,9 +29,10 @@ const char spaceChar   = ' ';
 
 void serialRqstHandler(serial_obj_t *serialObj);
 
-uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
 // uint8_t rxDataParsing(serial_obj_t *serialObj, ser_buffer_t *ser, rqst_action_t *receivedRqst);
-uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
+// uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
+void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
+void txDataEncoding(ser_buffer_t *ser, byte *infoStartAddr, uint8_t infoBlockSize);
 
 void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
 
@@ -64,7 +65,8 @@ void serialRxCheck(serial_obj_t *serialObj) {
     serialObj->txStatus = SER_TX_IDLE;
     // serialWrite(serialObj, serialObj->RX.buffer, 3);
     // serialObj->RX.mssgLen = rxDataParsing(serialObj, &serialObj->RX, &serialObj->pendingRqst);
-    serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
+    // serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
+    rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
     serialObj->rxStatus = SER_RX_IDLE;
     serialRqstHandler(serialObj);
     break;
@@ -102,6 +104,7 @@ void serialTxCheck(serial_obj_t *serialObj) {
   case SER_TX_RDY:
     // Send buffer content on serial port    
     (*serialObj->serialPort).write(serialObj->TX.buffer, serialObj->TX.mssgLen);
+    serialObj->TX.mssgLen = 0;
     serialObj->txStatus = SER_TX_CMPLT;
     break;
 
@@ -127,7 +130,8 @@ void serialTxCheck(serial_obj_t *serialObj) {
 /// @param ptr2MetaData 
 /// @param metaDataBlockSize 
 void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataBlockSize) {
-  serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, ptr2MetaData, metaDataBlockSize);
+  // serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, ptr2MetaData, metaDataBlockSize);
+  txDataEncoding(&serialObj->TX, ptr2MetaData, metaDataBlockSize);
   serialObj->txStatus = SER_TX_RQST;
   serialObj->rxStatus = SER_RX_FRZ;
 }
@@ -136,7 +140,7 @@ void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataB
 /// @brief Sends an "ACK" char over serial to let the PC know the request has been processed
 /// @param serialObj Serial Object to send the ACK signal to
 void sendAck(serial_obj_t *serialObj) {
-  serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, (byte*) &ack, sizeof(ack));
+  txDataEncoding(&serialObj->TX, (byte*) &ack, sizeof(ack));
   serialObj->txStatus = SER_TX_RQST;
   serialObj->rxStatus = SER_RX_FRZ;
 }
@@ -165,6 +169,11 @@ void serialRqstHandler(serial_obj_t *serialObj) {
   case RQST_PXLS_MGMT:
     {
       sendMetaData(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+      break;
+    }
+  case RQST_SCTS_ARR:
+    {
+      sendMetaData(serialObj, (byte*) getSctInfosPtr(), (sizeof(section_info_t) * getSctIndexTracker()));
       break;
     }
   case RQST_CONFIG_BRD:
@@ -205,13 +214,22 @@ void serialRqstHandler(serial_obj_t *serialObj) {
 }
 
 
-// Basically, keeping the same logic as the messageParsing function in the python code
+
 // uint8_t rxDataParsing(serial_obj_t *serialObj, ser_buffer_t *ser, rqst_action_t *receivedRqst) 
-uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
+
+/// @brief Parses a message received through the serial media.
+///        The command is separated from the rest of the data
+///        to facilitate further treatment 
+/// @param ser Serial buffer type var containing the serial mssg
+///            and the mssg length
+/// @param receivedRqst Rqst/cmd container to be update from the
+///                     mssg to be parsed
+/// @return Updated length (in bytes) of the parsed rxed mssg
+void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
   bool rqstCheck = false;
   uint8_t unitsTracker = 0;
   uint8_t extractedNbr = 0;
-  uint8_t newLen = 0;  
+
   for(uint8_t i = 0; i < ser->mssgLen; i++) {
     if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
       extractedNbr += convertAsciiToHex(ser->buffer[i]) * powOfTen(unitsTracker);
@@ -224,8 +242,8 @@ uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
           rqstCheck = true;
         }
         else {
-          ser->buffer[newLen] = extractedNbr;
-          newLen++;
+          ser->buffer[ser->mssgLen] = extractedNbr;
+          ser->mssgLen++;
         }
         unitsTracker = 0;
         extractedNbr = 0;
@@ -235,20 +253,28 @@ uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
       }
     }
   }
-  return(newLen);
 }
- 
 
-// Function used to fill the serial Rx buffer array. The idea is to separate each digits composing a number into individual bytes
-// all organized following the "little endian" order (units come first, then tens, then hundreds)
-uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize) {
-  
+
+/// @brief Encodes the info for a serial transmission to a rxer
+///        and fills a buffer with the result. The encoding logic
+///        is described in the Serial spreadsheets of the Drive
+/// @param ser Serial buffer type var containing the serial mssg
+///            and the mssg length
+/// @param infoStartAddr First address of the block of info to send
+/// @param infoBlockSize Size in bytes of the info block
+/// @return Amount of bytes to send
+void txDataEncoding(ser_buffer_t *ser, byte *infoStartAddr, uint8_t infoBlockSize) {
   // The following array is a rough representation of units[1], tens[2] & hundreds[3] of the base ten for digit splitting
   uint8_t baseTenArray[3] = {0, 0, 0};
   uint8_t arrNonZeroLen = 1;
-  uint8_t newLen = 0;
 
-  for(uint8_t i = 0; i < infoBlockSize; i += BYTE_SIZE) {
+  if (ser->mssgLen) {
+    ser->buffer[ser->mssgLen] = spaceChar;
+    ser->mssgLen++;
+  }
+
+  for (uint8_t i = 0; i < infoBlockSize; i += BYTE_SIZE) {
     if(*(infoStartAddr + i) >= 10) {
       digitSeparator(*(infoStartAddr + i), &baseTenArray[1], &baseTenArray[0]);
       arrNonZeroLen++;
@@ -260,18 +286,17 @@ uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize
     else {
       baseTenArray[0] = *(infoStartAddr + i);
     }
-    for(uint8_t i = 0; i < arrNonZeroLen; i++) {
-      buffer[newLen] = baseTenArray[i];
-      newLen++;
+    for (uint8_t i = 0; i < arrNonZeroLen; i++) {
+      ser->buffer[ser->mssgLen] = baseTenArray[i];
+      ser->mssgLen++;
     }
     // Adding the space char to the buffer, except when the info block has been done in entirety
-    if(i < infoBlockSize - BYTE_SIZE) {
-      buffer[newLen] = spaceChar;
-      newLen++;
+    if (i < infoBlockSize - BYTE_SIZE) {
+      ser->buffer[ser->mssgLen] = spaceChar;
+      ser->mssgLen++;
       arrNonZeroLen = 1;
     }
   }
-  return(newLen);
 }
 
 
@@ -299,3 +324,49 @@ void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes
 }
 
 //**********    DEBUG FUNCTION   ************//
+
+
+
+
+
+
+
+/// @brief Encodes the info for a serial transmission to a rxer
+///        and fills a buffer with the result. The encoding logic
+///        is described in the Serial spreadsheets of the Drive
+/// @param buffer Where the encoded message is stored
+/// @param infoStartAddr First address of the block of info to send
+/// @param infoBlockSize Size in bytes of the info block
+/// @return Amount of bytes to send
+// uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize) {
+  
+//   // The following array is a rough representation of units[1], tens[2] & hundreds[3] of the base ten for digit splitting
+//   uint8_t baseTenArray[3] = {0, 0, 0};
+//   uint8_t arrNonZeroLen = 1;
+//   uint8_t newLen = 0;
+
+//   for(uint8_t i = 0; i < infoBlockSize; i += BYTE_SIZE) {
+//     if(*(infoStartAddr + i) >= 10) {
+//       digitSeparator(*(infoStartAddr + i), &baseTenArray[1], &baseTenArray[0]);
+//       arrNonZeroLen++;
+//       if(baseTenArray[1] >= 10) {
+//         digitSeparator(baseTenArray[1], &baseTenArray[2], &baseTenArray[1]);
+//         arrNonZeroLen++;
+//       }
+//     }
+//     else {
+//       baseTenArray[0] = *(infoStartAddr + i);
+//     }
+//     for(uint8_t i = 0; i < arrNonZeroLen; i++) {
+//       buffer[newLen] = baseTenArray[i];
+//       newLen++;
+//     }
+//     // Adding the space char to the buffer, except when the info block has been done in entirety
+//     if(i < infoBlockSize - BYTE_SIZE) {
+//       buffer[newLen] = spaceChar;
+//       newLen++;
+//       arrNonZeroLen = 1;
+//     }
+//   }
+//   return(newLen);
+// }

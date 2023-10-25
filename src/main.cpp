@@ -79,6 +79,10 @@ void setup() {
 
   bootUp();
 
+  // Serial.print((uint16_t) getSctInfosPtr(), HEX);
+  // Serial.print(' ');
+  // Serial.print((sizeof(section_info_t) * getSctIndexTracker()));
+
   //*************   BT MODULE SET-UP   **************//
   
   /*

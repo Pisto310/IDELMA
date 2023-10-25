@@ -172,18 +172,28 @@ void editPxlCount(uint8_t sctID, uint8_t newPxlCount) {
 }
 
 
-/// @brief Used to acces the value of the local sctIndexTracker variable
+/// @brief Used to acces the value of the local sctIndexTracker
+///        variable
 /// @return sctIndexTracker local variable
 uint8_t getSctIndexTracker() {
   return sctIndexTracker;
 }
 
 
-/// @brief Function that returns the section_info_t obj at the position given by the index parameter
+/// @brief Function that returns the section_info_t obj at the 
+///        position given by the index parameter
 /// @param index position of the section_info_t obj to return
 /// @return a (pointer) section_info_t obj
 section_info_t getSctInfos(uint8_t index) {
   return sectionInfoArr[index];
+}
+
+
+/// @brief Function to get the address of the first index of
+///        of the sectionInfoArr
+/// @return Pointer to the first item of sectionInfoArr array
+section_info_t* getSctInfosPtr() {
+  return sectionInfoArr;
 }
 
 

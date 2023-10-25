@@ -50,6 +50,7 @@ typedef enum rqst_action {
   RQST_FW_VERS,
   RQST_SCTS_MGMT,
   RQST_PXLS_MGMT,
+  RQST_SCTS_ARR,
   RQST_CONFIG_BRD = 10,
   RQST_SAVE_CONFIG = 20,
   RQST_ALL_OFF = 254,
