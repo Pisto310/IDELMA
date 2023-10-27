@@ -31,7 +31,7 @@ void serialRqstHandler(serial_obj_t *serialObj);
 
 // uint8_t rxDataParsing(serial_obj_t *serialObj, ser_buffer_t *ser, rqst_action_t *receivedRqst);
 // uint8_t txDataEncoding(byte buffer[], byte *infoStartAddr, uint8_t infoBlockSize);
-void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
+uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
 void txDataEncoding(ser_buffer_t *ser, byte *infoStartAddr, uint8_t infoBlockSize);
 
 void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
@@ -66,7 +66,7 @@ void serialRxCheck(serial_obj_t *serialObj) {
     // serialWrite(serialObj, serialObj->RX.buffer, 3);
     // serialObj->RX.mssgLen = rxDataParsing(serialObj, &serialObj->RX, &serialObj->pendingRqst);
     // serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
-    rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
+    serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
     serialObj->rxStatus = SER_RX_IDLE;
     serialRqstHandler(serialObj);
     break;
@@ -178,6 +178,7 @@ void serialRqstHandler(serial_obj_t *serialObj) {
     }
   case RQST_CONFIG_BRD:
     {
+      serialWrite(serialObj, serialObj->RX.buffer, serialObj->RX.mssgLen);
       configBrd(serialObj->RX.buffer, serialObj->RX.mssgLen);
       sendAck(serialObj);
       break;
@@ -225,10 +226,11 @@ void serialRqstHandler(serial_obj_t *serialObj) {
 /// @param receivedRqst Rqst/cmd container to be update from the
 ///                     mssg to be parsed
 /// @return Updated length (in bytes) of the parsed rxed mssg
-void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
+uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
   bool rqstCheck = false;
   uint8_t unitsTracker = 0;
   uint8_t extractedNbr = 0;
+  uint8_t newLen = 0;
 
   for(uint8_t i = 0; i < ser->mssgLen; i++) {
     if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
@@ -242,8 +244,8 @@ void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
           rqstCheck = true;
         }
         else {
-          ser->buffer[ser->mssgLen] = extractedNbr;
-          ser->mssgLen++;
+          ser->buffer[newLen] = extractedNbr;
+          newLen++;
         }
         unitsTracker = 0;
         extractedNbr = 0;
@@ -253,6 +255,7 @@ void rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
       }
     }
   }
+  return newLen;
 }
 
 
