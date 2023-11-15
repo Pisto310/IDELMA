@@ -153,32 +153,31 @@ void serialRqstHandler(serial_obj_t *serialObj) {
   switch(serialObj->pendingRqst) {
   case RQST_SER_NUM:
     {
-      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().serialNumPtr, sizeof(*(getBoardInfosPtrs().serialNumPtr)));
+      sendMetaData(serialObj, (byte*) getBrdMgmtMetaDatasPtr().serialNumPtr, sizeof(*(getBrdMgmtMetaDatasPtr().serialNumPtr)));
       break;
     }
   case RQST_FW_VERS:
     {
-      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().fwVersionPtr, sizeof(*(getBoardInfosPtrs().fwVersionPtr)));
+      sendMetaData(serialObj, (byte*) getBrdMgmtMetaDatasPtr().fwVersionPtr, sizeof(*(getBrdMgmtMetaDatasPtr().fwVersionPtr)));
       break;
     }
   case RQST_SCTS_MGMT:
     {
-      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().sectionsInfoPtr, sizeof(*(getBoardInfosPtrs().sectionsInfoPtr)));
+      sendMetaData(serialObj, (byte*) getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr, sizeof(*(getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr)));
       break;
     }
   case RQST_PXLS_MGMT:
     {
-      sendMetaData(serialObj, (byte*) getBoardInfosPtrs().pixelsInfoPtr, sizeof(*(getBoardInfosPtrs().pixelsInfoPtr)));
+      sendMetaData(serialObj, (byte*) getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr, sizeof(*(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr)));
       break;
     }
   case RQST_SCTS_ARR:
     {
-      sendMetaData(serialObj, (byte*) getSctInfosPtr(), (sizeof(section_info_t) * getSctIndexTracker()));
+      sendMetaData(serialObj, (byte*) getSctMetaDatasPtr(), (sizeof(sct_metadata_t) * getSctIndexTracker()));
       break;
     }
   case RQST_CONFIG_BRD:
     {
-      serialWrite(serialObj, serialObj->RX.buffer, serialObj->RX.mssgLen);
       configBrd(serialObj->RX.buffer, serialObj->RX.mssgLen);
       sendAck(serialObj);
       break;
@@ -316,7 +315,6 @@ void clrBuffData(ser_buffer_t *ser, uint8_t startIndex, uint8_t stopIndex) {
 
 // Homemade Serial write func that adds the lineFeed char at the end of data to send
 void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes) {
-  
   byte serialArr[nbrOfBytes + 1];
   serialArr[nbrOfBytes] = lineFeed;
 

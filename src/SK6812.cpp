@@ -8,7 +8,7 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
-// volatile pixel_info_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+// volatile pxl_metadata_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 //**********    GLOBAL VARIABLES DECLARATION   ************//
 
@@ -18,8 +18,8 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
-pixel_info_t* ptrPxlInfo = (pixel_info_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pixel_info_t));
-pixel_info_t* arrPtrPxlInfo[MAX_NO_SCTS];
+pxl_metadata_t* pxlMetaDataPtr = (pxl_metadata_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pxl_metadata_t));
+pxl_metadata_t* pxlMetaDataPtrArr[MAX_NO_SCTS];
 
 // Filling the neopxl Objects array
 Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
@@ -37,13 +37,14 @@ Adafruit_NeoPixel neopxlObjArr[MAX_NO_SCTS] = {
   Adafruit_NeoPixel(0, PIN_SCT_11, NEO_GRBW + NEO_KHZ800),
 };
 
-section_info_t sectionInfoArr[MAX_NO_SCTS];
+sct_metadata_t sctsMetaDatasArr[MAX_NO_SCTS];
 
 static uint8_t sctIndexTracker = 0;
+static byte* sctIdxTrackerPtr = &(getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr)->assigned;
 
-eeprom_chapter_t sctInfoChap = {
+eeprom_chapter_t sctsMetaDataChap = {
   .startIdx   = EEPROM_PAGE_IDX(EEPROM_SCTS_INFO_START_PAGE),
-  .bytesCount = (sizeof(section_info_t) * MAX_NO_SCTS)
+  .bytesCount = (sizeof(sct_metadata_t) * MAX_NO_SCTS)
 };
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
@@ -55,10 +56,13 @@ eeprom_chapter_t sctInfoChap = {
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-// void sctReset(pixel_info_t* heapStartAddr, uint8_t section, uint8_t newPxlCount, uint16_t pxlInfoToReset = 0);
+// void sctReset(pxl_metadata_t* heapStartAddr, uint8_t section, uint8_t newPxlCount, uint16_t pxlInfoToReset = 0);
 
-void setPxlInfo(uint8_t pxlCount);
-void setNeoPxl(uint8_t pxlCount, uint8_t brightness);
+void setPxlsMetaData(uint8_t pxlCount);
+void setNeoPxl();
+void updtPxlInst(uint8_t heapBlocks);
+void updtMgmtMetaData(uint8_t heapBlocks);
+byte requiredHeapBlocks(byte pxlCount, byte singlePxlCtrl);
 
 void editPxlCount(uint8_t sctID, uint8_t newPxlCount);
 
@@ -76,84 +80,121 @@ uint32_t rgbw2hsv(uint32_t rgbwColor);
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
 
-/// @brief Called to setup a section
-/// @param pxlCount Number of pixel contained in the instanciated section
-/// @param brightness Brightness setting, 0=minimum (off), 255=brightest
-/// @param sctAsPxl Indicates if all LEDs separate entities or one single 
-///                 entity (affects number of pixel_info_t obj created)
-void setupSection(uint8_t pxlCount, uint8_t brightness, bool sctAsPxl) {
-  if(sctAsPxl) {
-    if(remainingHeapSpace(1) && remainingSctsPins()) {
-      setPxlInfo(1);
-      pixelsMgmtAdd(1);
-    }
-  }
-  else {
-    if(remainingHeapSpace(pxlCount) && remainingSctsPins()) {
-      setPxlInfo(pxlCount);
-      pixelsMgmtAdd(pxlCount);
-    }
-  }
-  setNeoPxl(pxlCount, brightness);
-  sectionsMgmtAdd();
-
-  // updating the section info matrix
-  sectionInfoArr[sctIndexTracker].pxlCount   = pxlCount;
-  sectionInfoArr[sctIndexTracker].brightness = brightness;
-
-  //**debug**//
-  stripColorFill(sctIndexTracker, 0x3B659C00);
-  //**debug**//
-
-  sctIndexTracker++;
-}
-
-
-/// @brief Clears a section in its entirety
-/// @param sctID Affected section's index
-void clearSection(uint8_t sctID) {
-  if(sctID < sctIndexTracker && neopxlObjArr[sctID].numPixels()) {
-    removingPxlsFromSct(sctID, 0);
-    sectionsMgmtRemove();
-    sctIndexTracker--;
+/// @brief Create section according to data contained in packet
+/// @param sctIdx Index of the section to create (follows the 'assigned'
+///               attribute of the sctMgmtMetaData)
+/// @param sctMetaDataPckt Necessary info to initiate section
+void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
+  uint8_t memBlocks = (uint8_t) requiredHeapBlocks(sctMetaDataPckt.pxlCount, sctMetaDataPckt.singlePxlCtrl);
+  if (remainingHeapSpace(memBlocks) && remainingSctsPins() && sctIdx == *sctIdxTrackerPtr) {
+    sctsMetaDatasArr[sctIdx] = sctMetaDataPckt;
+    updtPxlInst(memBlocks);
+    updtMgmtMetaData(memBlocks);
   }
 }
 
 
-/// @brief Edit section attributes
-/// @param sctID Affected section's index
-/// @param rxedPxlCount Section's pixel count as received through serial ('0' case is handled in clearSection)
-void editSection(uint8_t sctID, uint8_t rxedPxlCount) {
-  if(rxedPxlCount != sectionInfoArr[sctID].pxlCount) {
-    editPxlCount(sctID, rxedPxlCount);
+/// @brief Called to edit an existing section, be it to change its pixel
+///        count, brightness or anything else related to its metadata
+///        (not called for changing color)
+/// @param sctIdx Index of the section to edit
+/// @param sctMetaDataPckt All data that has been edited about the sct is
+///                        contained in this input param
+void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
+  if(sctMetaDataPckt.pxlCount != sctsMetaDatasArr[sctIdx].pxlCount) {
+    editPxlCount(sctIdx, sctMetaDataPckt.pxlCount);
   }
   // More condition to test as more section attributes get added (brightness, sctAsPxl, etc.)
 }
 
 
-/// @brief Sets the pixel_info_t parameters for each pixels of a section. Called at section's inception
-/// @param pxlCount Number of pixel contained in the instanciated section
-void setPxlInfo(uint8_t pxlCount) {
-  arrPtrPxlInfo[sctIndexTracker] = ptrPxlInfo;
-  ptrPxlInfo += pxlCount;
-
-  for(uint8_t pxlNbr = 0; pxlNbr < pxlCount; pxlNbr++) {
-    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlSctID = sctIndexTracker;
-    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlID    = pxlNbr;
-    (arrPtrPxlInfo[sctIndexTracker] + pxlNbr)->pxlState = IDLE;
+/// @brief Delete an existing section. By doing so, all dowstream sections
+///        are down shifted so as not to create a hole in the lighting strip
+///        and for easier indexing. For example, if there are 5 sections and
+///        the user decides to erase section at index 2 (middle one), then scts
+///        w/ idxs 3 & 4 are kept by editing the attributes of sct idx 2 w/ those
+///        of sct idx 3 and so on. The delete is really only done on the last existing 
+///        sct, the one w/ idx = 4
+/// @param sctIdx Index of the section to erase
+/// @param sctMetaDataPckt Data representing a section erasure (all attr. are set to 0).
+///                        Really only used for consistency w/ createSection & editSection
+///                        functions.
+void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
+  if(sctIdx < *sctIdxTrackerPtr && sctsMetaDatasArr[sctIdx].pxlCount) {
+    
+    //**debug**//
+    stripOFF(sctIdx);
+    //**debug**//
+    
+    removingPxlsFromSct(sctIdx, 0);
+    sectionsMgmtRemove();
+    
+    // Will remove later
+    sctIndexTracker--;
   }
 }
 
 
-/// @brief Sets the NeoPixel object when creating a section. Called at section's inception
-/// @param pxlCount Number of pixel contained in the instanciated section
-/// @param brightness Brightness setting, 0=minimum (off), 255=brightest
-void setNeoPxl(uint8_t pxlCount, uint8_t brightness) {
-  neopxlObjArr[sctIndexTracker].updateLength((uint16_t)pxlCount);
-  neopxlObjArr[sctIndexTracker].begin();           // needs to be done for each instanciated neopxlObj
-  neopxlObjArr[sctIndexTracker].setBrightness(brightness);
+/// @brief Indicates the number of block space needed in the heap for
+///        a given section
+/// @param pxlCount Number of pixel to be lit up on the strip
+/// @param singlePxlCtrl Indicating if whole strip is seen as a single pixel
+///                      (Initially a bool)
+/// @return Required amount of blocks needed in heap
+byte requiredHeapBlocks(byte pxlCount, byte singlePxlCtrl) {
+  return singlePxlCtrl ? singlePxlCtrl : pxlCount;
+}
+
+
+/// @brief Sets the pxl_metadata_t parameters for each pixels of a section. 
+///        Called at section's inception
+/// @param heapBlocks Number of needed heap blocks to initialize new sct
+void setPxlsMetaData(uint8_t heapBlocks) {
+  pxlMetaDataPtrArr[*sctIdxTrackerPtr] = pxlMetaDataPtr;
+  pxlMetaDataPtr += heapBlocks;
+
+  for(uint8_t pxlIdx = 0; pxlIdx < heapBlocks; pxlIdx++) {
+    (pxlMetaDataPtrArr[sctIndexTracker] + pxlIdx)->pxlSctID = *sctIdxTrackerPtr;
+    (pxlMetaDataPtrArr[sctIndexTracker] + pxlIdx)->pxlID    = pxlIdx;
+    (pxlMetaDataPtrArr[sctIndexTracker] + pxlIdx)->pxlState = IDLE;
+  }
+}
+
+
+/// @brief Sets the NeoPixel object when creating a section. 
+///        Only called at section's inception
+void setNeoPxl() {
+  neopxlObjArr[*sctIdxTrackerPtr].updateLength((uint16_t) sctsMetaDatasArr[*sctIdxTrackerPtr].pxlCount);
+  neopxlObjArr[*sctIdxTrackerPtr].begin();
+  neopxlObjArr[*sctIdxTrackerPtr].setBrightness(sctsMetaDatasArr[*sctIdxTrackerPtr].brightness);
   // stripColorFill(sectionIndex, 0xFF00FF00);
   // stripOFF(sectionIndex);
+}
+
+
+/// @brief Set the NeoPixel object and the pixel metadatas during a
+///        section's creation
+/// @param heapBlocks Blocks necessary in the heap to initiate section
+void updtPxlInst(uint8_t heapBlocks) {
+  setPxlsMetaData(heapBlocks);
+  setNeoPxl();
+}
+
+
+/// @brief Update the board management metadatas during section's creation
+/// @param heapBlocks Blocks that are to be filled in the heap due to 
+///                   section creation process
+void updtMgmtMetaData(uint8_t heapBlocks) {
+  
+  //**debug**//
+  stripColorFill(*sctIdxTrackerPtr, 0x3B659C00);
+  //**debug**//
+  
+  pixelsMgmtAdd(heapBlocks);
+  sectionsMgmtAdd();
+  
+  // Will remove later
+  sctIndexTracker++;
 }
 
 
@@ -162,10 +203,10 @@ void setNeoPxl(uint8_t pxlCount, uint8_t brightness) {
 /// @param newPxlCount Pixel count to be updated in affected section
 void editPxlCount(uint8_t sctID, uint8_t newPxlCount) {
   if(sctID < sctIndexTracker && remainingHeapSpace(newPxlCount)) {
-    if(newPxlCount < sectionInfoArr[sctID].pxlCount) {
+    if(newPxlCount < sctsMetaDatasArr[sctID].pxlCount) {
       removingPxlsFromSct(sctID, newPxlCount);
     }
-    else if(newPxlCount > sectionInfoArr[sctID].pxlCount) {
+    else if(newPxlCount > sctsMetaDatasArr[sctID].pxlCount) {
       addingPxlsToSct(sctID, newPxlCount);
     }
   }
@@ -180,20 +221,20 @@ uint8_t getSctIndexTracker() {
 }
 
 
-/// @brief Function that returns the section_info_t obj at the 
+/// @brief Function that returns the sct_metadata_t obj at the 
 ///        position given by the index parameter
-/// @param index position of the section_info_t obj to return
-/// @return a (pointer) section_info_t obj
-section_info_t getSctInfos(uint8_t index) {
-  return sectionInfoArr[index];
+/// @param index position of the sct_metadata_t obj to return
+/// @return a (pointer) sct_metadata_t obj
+sct_metadata_t getSctMetaDatas(uint8_t index) {
+  return sctsMetaDatasArr[index];
 }
 
 
 /// @brief Function to get the address of the first index of
-///        of the sectionInfoArr
-/// @return Pointer to the first item of sectionInfoArr array
-section_info_t* getSctInfosPtr() {
-  return sectionInfoArr;
+///        of the sctsMetaDatasArr
+/// @return Pointer to the first item of sctsMetaDatasArr array
+sct_metadata_t* getSctMetaDatasPtr() {
+  return sctsMetaDatasArr;
 }
 
 
@@ -202,7 +243,7 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
   
   // Got to check if the pixel number asked for is part of the section
   if(pixel < neopxlObjArr[section].numPixels()) {
-    (arrPtrPxlInfo[section] + pixel)->hsvTarget = whatev;
+    (pxlMetaDataPtrArr[section] + pixel)->hsvTarget = whatev;
   }
   else {
     Serial.println("pixel passed is out of range");
@@ -214,7 +255,7 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
 ///        the EEPROM.
 /// @return A boolean indicating if there is a saved config (1) or not (0)
 bool checkSctsConfigSave() {
-  if (eepromByteRead(sctInfoChap.startIdx)) {
+  if (eepromByteRead(sctsMetaDataChap.startIdx)) {
     return 1;
   }
   else {
@@ -226,16 +267,16 @@ bool checkSctsConfigSave() {
 /// @brief Save user configuration into EEPROM for future
 ///        boot-up use.
 void sctsConfigSave() {
-  eepromWriteChap(sctInfoChap, (byte*) sectionInfoArr);
+  eepromWriteChap(sctsMetaDataChap, (byte*) sctsMetaDatasArr);
 }
 
 
 /// @brief Reads and extract the saved sections configuration
 ///        in EEPROM if there is one. Called at boot-up.
 void sctsConfigRead() {
-  // eepromReset(sctInfoChap);
+  // eepromReset(sctsMetaDataChap);
   if (checkSctsConfigSave()) {
-    eepromReadChap(sctInfoChap, (byte*) sectionInfoArr);
+    eepromReadChap(sctsMetaDataChap, (byte*) sctsMetaDatasArr);
     setupFromSave();
   }
 }
@@ -244,7 +285,7 @@ void sctsConfigRead() {
 /// @brief Simple reset eeprom sct infos chap (for debug purposes)
 void sctsConfigRst() {
   if (checkSctsConfigSave()) {
-    eepromReset(sctInfoChap);
+    eepromReset(sctsMetaDataChap);
   }
 }
 
@@ -252,11 +293,13 @@ void sctsConfigRst() {
 /// @brief Setup board from a peviously saved configuration
 void setupFromSave() {
   for (uint8_t i = 0; i < MAX_NO_SCTS; i++) {
-    uint8_t pixelCount = sectionInfoArr[i].pxlCount;
-    uint8_t brightness = sectionInfoArr[i].brightness;
-    if (pixelCount && brightness) {
-      setupSection(pixelCount, brightness);
-    }
+    return;
+    // uint8_t pixelCount = sctsMetaDatasArr[i].pxlCount;
+    // uint8_t brightness = sctsMetaDatasArr[i].brightness;
+    // bool singlePxlCtrl = sctsMetaDatasArr[i].singlePxlCtrl;
+    // if (pixelCount && brightness) {
+    //   createSection(pixelCount, brightness, singlePxlCtrl);
+    // }
   }
 }
 
@@ -271,7 +314,7 @@ void setupFromSave() {
 
 //   while(EEPROM.read(eepromAddr) || eepromAddr < (sizeof(sectionIndex) + 1)) {
 //     createSection(EEPROM.read(eepromAddr), EEPROM.read(eepromAddr + BYTE_SIZE));
-//     eepromAddr += sizeof(section_info_t);
+//     eepromAddr += sizeof(sct_metadata_t);
 //   }
 // }
 
@@ -281,9 +324,9 @@ void setupFromSave() {
 //   uint8_t counter_2 = 0;
 
 //   // Start address of where to write to in RAM casted as a single byte pointer
-//   uint8_t *ramAddr = (uint8_t*) ptrPxlInfo;
+//   uint8_t *ramAddr = (uint8_t*) pxlMetaDataPtr;
 
-//   uint8_t  blockSize = sizeof(pixel_info_t);            // Might upgrade to uint16_t?
+//   uint8_t  blockSize = sizeof(pxl_metadata_t);            // Might upgrade to uint16_t?
 //   uint8_t  numBlocks = PXLINFO_HEAP_SIZE;
 //   uint16_t numBytesToRead = blockSize * numBlocks;
 
@@ -296,10 +339,10 @@ void setupFromSave() {
 
 //     if(!counter_1 && counter_2 == eepromVal) {
 //       *ramAddr = eepromVal;
-//       arrPtrPxlInfo[counter_2] = (pixel_info_t*) ramAddr;
+//       pxlMetaDataPtrArr[counter_2] = (pxl_metadata_t*) ramAddr;
 //       counter_2++;
 //     }
-//     else {    // case for which we're not at pixel_info_t obj first byte
+//     else {    // case for which we're not at pxl_metadata_t obj first byte
 //       *ramAddr = eepromVal;
 //     }
 
@@ -353,8 +396,8 @@ void eepromMemCheck(void) {
 
 void pixelActionsHandler(void) {
   for(uint8_t sct = 0; sct < sctIndexTracker; sct++) {
-    for(uint8_t pxl = 0; pxl < sectionInfoArr[sct].pxlCount; pxl++) {
-      switch ((arrPtrPxlInfo[sct] + pxl)->pxlState) {
+    for(uint8_t pxl = 0; pxl < sctsMetaDatasArr[sct].pxlCount; pxl++) {
+      switch ((pxlMetaDataPtrArr[sct] + pxl)->pxlState) {
       
       default:
         // FSM comes here if the pixel state is IDLE
@@ -420,14 +463,14 @@ void pixelActionsHandler(void) {
 
 void pxlStateUpdt(uint8_t section, uint8_t pixel, pixel_state_t state) {
   // First, maybe check if I have to reset the ongoing action times
-  if((arrPtrPxlInfo[section] + pixel)->pxlActionStart.actionOneStart) {
+  if((pxlMetaDataPtrArr[section] + pixel)->pxlActionStart.actionOneStart) {
     
     // func to erase action thingies
 
   }
   
   // changing state
-  (arrPtrPxlInfo[section] + pixel)->pxlState = state;
+  (pxlMetaDataPtrArr[section] + pixel)->pxlState = state;
 }
 
 // Function that can be called to update either one of the color attribute of a pixel
@@ -441,23 +484,23 @@ void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat
     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
 
     if(targetUpdt) {
-      (arrPtrPxlInfo[section] + pixel)->rgbwTarget = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
-      (arrPtrPxlInfo[section] + pixel)->hsvTarget = color;
+      (pxlMetaDataPtrArr[section] + pixel)->rgbwTarget = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
+      (pxlMetaDataPtrArr[section] + pixel)->hsvTarget = color;
     }
     else {
-      (arrPtrPxlInfo[section] + pixel)->rgbwColor = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
-      (arrPtrPxlInfo[section] + pixel)->hsvColor = color;
+      (pxlMetaDataPtrArr[section] + pixel)->rgbwColor = wrgb2rgbw(neopxlObjArr[section].ColorHSV(hue, sat, val));
+      (pxlMetaDataPtrArr[section] + pixel)->hsvColor = color;
     }
   }
 
   else {
     if(targetUpdt) {
-      (arrPtrPxlInfo[section] + pixel)->rgbwTarget = color;
-      (arrPtrPxlInfo[section] + pixel)->hsvTarget = rgbw2hsv(color);
+      (pxlMetaDataPtrArr[section] + pixel)->rgbwTarget = color;
+      (pxlMetaDataPtrArr[section] + pixel)->hsvTarget = rgbw2hsv(color);
     }
     else {
-      (arrPtrPxlInfo[section] + pixel)->rgbwColor = color;
-      (arrPtrPxlInfo[section] + pixel)->hsvColor = rgbw2hsv(color);
+      (pxlMetaDataPtrArr[section] + pixel)->rgbwColor = color;
+      (pxlMetaDataPtrArr[section] + pixel)->hsvColor = rgbw2hsv(color);
     }
   }
 }
@@ -903,8 +946,8 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 
 /// @brief Removes pixels in any given section. It's done in a bare-metal kind of way,
 ///        which is by shifting affected bytes in the heap. The number of bytes to shift
-///        is dependent upon block size (pixel_info_t byte size) and how many blocks
-///        there are to shift. When reaching the new address of ptrPxlInfo, all bytes
+///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
+///        there are to shift. When reaching the new address of pxlMetaDataPtr, all bytes
 ///        are then overwritten with 0x00 as a way to reset them for future use.
 ///        Note that this 0x00 byte reset isn't executed when erasing the last sct
 ///        because it will be updated when the next one is created
@@ -912,24 +955,24 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
 /// @param newPxlCount Updated pixel count (must be lower than original)
 void removingPxlsFromSct(uint8_t sctID, uint8_t newPxlCount) {  
   
-  uint8_t  freedHeapBlocks = sectionInfoArr[sctID].pxlCount - newPxlCount;     // Expressed in terms of a number of pixel_info_t OBJ
-  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
+  uint8_t  freedHeapBlocks = sctsMetaDatasArr[sctID].pxlCount - newPxlCount;     // Expressed in terms of a number of pxl_metadata_t OBJ
+  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
-  byte *heapEraseAddr           = (byte*)ptrPxlInfo - freedHeapBytes;
-  byte *heapOverWriteDestAddr   = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount);
-  byte *heapOverWriteSourceAddr = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount) + freedHeapBytes;
+  byte *heapEraseAddr           = (byte*)pxlMetaDataPtr - freedHeapBytes;
+  byte *heapOverWriteDestAddr   = (byte*)(pxlMetaDataPtrArr[sctID] + newPxlCount);
+  byte *heapOverWriteSourceAddr = (byte*)(pxlMetaDataPtrArr[sctID] + newPxlCount) + freedHeapBytes;
 
   uint8_t pxlInfoToShift = 0;
 
-  ptrPxlInfo = (pixel_info_t*)heapEraseAddr;
+  pxlMetaDataPtr = (pxl_metadata_t*)heapEraseAddr;
 
-  // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
+  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
   // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
   for(uint8_t i = sctID + 1; i < sctIndexTracker; i++) {
-    pxlInfoToShift += sectionInfoArr[i].pxlCount;
-    arrPtrPxlInfo[i] -= freedHeapBlocks;
+    pxlInfoToShift += sctsMetaDatasArr[i].pxlCount;
+    pxlMetaDataPtrArr[i] -= freedHeapBlocks;
   }
-  uint16_t bytesToShift = pxlInfoToShift * sizeof(pixel_info_t) * BYTE_SIZE;
+  uint16_t bytesToShift = pxlInfoToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
   // This where the overwriting is done
   while(bytesToShift) {
@@ -945,37 +988,37 @@ void removingPxlsFromSct(uint8_t sctID, uint8_t newPxlCount) {
 
   // Updating length of neopixel Obj, section info matrix & board infos
   neopxlObjArr[sctID].updateLength((uint16_t)newPxlCount);
-  pixelsMgmtRemove(sectionInfoArr[sctID].pxlCount - newPxlCount);
-  sectionInfoArr[sctID].pxlCount = newPxlCount;
+  pixelsMgmtRemove(sctsMetaDatasArr[sctID].pxlCount - newPxlCount);
+  sctsMetaDatasArr[sctID].pxlCount = newPxlCount;
 }
 
 
 /// @brief Adds pixels in any given section. It's done in a bare-metal kind of way,
 ///        which is by shifting affected bytes in the heap. The number of bytes to shift
-///        is dependent upon block size (pixel_info_t byte size) and how many blocks
+///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
 ///        there are to shift. Once the last address of the new pixel blocks is reached,
 ///        existing bytes are overwritten with 0x00 to prevent any strange behavior.
 /// @param sctID Section from which to add pixels
 /// @param newPxlCount Updated pixel count (must be higher than original)
 void addingPxlsToSct(uint8_t sctID, uint8_t newPxlCount) {
 
-  uint8_t  toBeUsedHeapBlocks = newPxlCount - sectionInfoArr[sctID].pxlCount;                 // Expressed in terms of a number of pixel_info_t OBJ
-  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pixel_info_t) * BYTE_SIZE;
+  uint8_t  toBeUsedHeapBlocks = newPxlCount - sctsMetaDatasArr[sctID].pxlCount;                 // Expressed in terms of a number of pxl_metadata_t OBJ
+  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
-  byte *heapOverWriteDestAddr   = (byte*)ptrPxlInfo + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
-  byte *heapOverWriteSourceAddr = (byte*)ptrPxlInfo - BYTE_SIZE;                              // Last addr where there is actual info
-  byte *heapMemClearAddr        = (byte*)(arrPtrPxlInfo[sctID] + newPxlCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
+  byte *heapOverWriteDestAddr   = (byte*)pxlMetaDataPtr + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
+  byte *heapOverWriteSourceAddr = (byte*)pxlMetaDataPtr - BYTE_SIZE;                              // Last addr where there is actual info
+  byte *heapMemClearAddr        = (byte*)(pxlMetaDataPtrArr[sctID] + newPxlCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
 
   uint8_t pxlInfoToShift = 0;
 
-  ptrPxlInfo = (pixel_info_t*)heapOverWriteDestAddr + BYTE_SIZE;
+  pxlMetaDataPtr = (pxl_metadata_t*)heapOverWriteDestAddr + BYTE_SIZE;
 
-  // Calculating number of pixel_info_t obj to shift in heap and then to how many bytes that amounts
+  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
   for(uint8_t i = sctID + 1; i < sctIndexTracker; i++) {
-    pxlInfoToShift += sectionInfoArr[i].pxlCount;
-    arrPtrPxlInfo[i] += toBeUsedHeapBlocks;
+    pxlInfoToShift += sctsMetaDatasArr[i].pxlCount;
+    pxlMetaDataPtrArr[i] += toBeUsedHeapBlocks;
   }
-  uint16_t bytesToShift = pxlInfoToShift * sizeof(pixel_info_t) * BYTE_SIZE;
+  uint16_t bytesToShift = pxlInfoToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
   // This where the overwriting is done
   while(bytesToShift) {
@@ -990,16 +1033,16 @@ void addingPxlsToSct(uint8_t sctID, uint8_t newPxlCount) {
   }
 
   // Updating the pixel info array with the newly created LEDs
-  for(uint8_t pxlNbr = sectionInfoArr[sctID].pxlCount; pxlNbr < newPxlCount; pxlNbr++) {
-      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlSctID = sctID;
-      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlID    = pxlNbr;
-      (arrPtrPxlInfo[sctID] + pxlNbr)->pxlState = IDLE;
+  for(uint8_t pxlNbr = sctsMetaDatasArr[sctID].pxlCount; pxlNbr < newPxlCount; pxlNbr++) {
+      (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlSctID = sctID;
+      (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlID    = pxlNbr;
+      (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlState = IDLE;
   }
 
   // Updating length of neopixel Obj, section info matrix & board infos
   neopxlObjArr[sctID].updateLength((uint16_t)newPxlCount);
-  pixelsMgmtAdd(newPxlCount - sectionInfoArr[sctID].pxlCount);
-  sectionInfoArr[sctID].pxlCount = newPxlCount;
+  pixelsMgmtAdd(newPxlCount - sctsMetaDatasArr[sctID].pxlCount);
+  sctsMetaDatasArr[sctID].pxlCount = newPxlCount;
 }
 
 //***********    LOCAL FUNCS DEFINITION    ***********//
@@ -1032,8 +1075,8 @@ void colorDecomposer(uint8_t destArray[], uint32_t longColor, uint8_t startIndx)
 // //**debug**//
 // stripOFF(section);
 
-// for(uint8_t i = 0; i < sectionInfoArr[section].pxlCount; i++) {
-//   pxlColorOut(section, i, (arrPtrPxlInfo[section])->rgbwColor);
+// for(uint8_t i = 0; i < sctsMetaDatasArr[section].pxlCount; i++) {
+//   pxlColorOut(section, i, (pxlMetaDataPtrArr[section])->rgbwColor);
 // }
 // //**debug**//
 
@@ -1046,7 +1089,7 @@ void colorDecomposer(uint8_t destArray[], uint32_t longColor, uint8_t startIndx)
 // removingPxlsFromSct(section, newPxlCount);
 
 // //**debug**//
-// for(uint8_t i = 0; i < sectionInfoArr[section].pxlCount; i++) {
+// for(uint8_t i = 0; i < sctsMetaDatasArr[section].pxlCount; i++) {
 //   pxlColorOut(section, i, 0xFC7F0300);
 // }
 // //**debug**//
@@ -1056,7 +1099,7 @@ void colorDecomposer(uint8_t destArray[], uint32_t longColor, uint8_t startIndx)
 // //**debug**//
 // stripOFF(section);
 
-// for(uint8_t i = 0; i < sectionInfoArr[section].pxlCount; i++) {
+// for(uint8_t i = 0; i < sctsMetaDatasArr[section].pxlCount; i++) {
 //   pxlColorOut(section, i, 0x0000005F);
 // }
 // //**debug**//

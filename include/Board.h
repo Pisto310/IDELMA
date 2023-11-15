@@ -8,6 +8,7 @@ Description : Every metadatas, pins configuration and size/limitation set for MC
 #define BOARD_H_
 
 #include "Arduino.h"
+#include "Serial_lib.h"
 #include "User_Lib.h"
 #include "EEPROM_lib.h"
 
@@ -61,29 +62,43 @@ typedef struct FW_Version {
   byte patchNum;
 }firmware_t;
 
-typedef struct MutableBrdInfo {
+typedef struct BrdMgmtMetaDataAttr {
   byte capacity;
   byte remaining;
   byte assigned;
-}mutable_brdInfo_t;
+}brdMgmt_attr_t;
 
-typedef struct BoardInfosPtrs {
-  const uint32_t*    serialNumPtr;
-  const firmware_t*  fwVersionPtr;
-  mutable_brdInfo_t* sectionsInfoPtr;
-  mutable_brdInfo_t* pixelsInfoPtr;
-}board_infos_ptrs_t;
+typedef struct BrdMetaDataPtrs {
+  const uint32_t*   serialNumPtr;
+  const firmware_t* fwVersionPtr;
+  brdMgmt_attr_t*   sctsMgmtMetaDataPtr;
+  brdMgmt_attr_t*   pxlsMgmtMetaDataPtr;
+}brd_metadata_ptrs_t;
+
+// typedef struct SerialSctMetaData {
+//   byte sctIdx;
+//   byte pxlCount;
+//   byte brightness;
+//   byte singlePxlCtrl;
+// }ser_sct_metadata_t;
+
+// typedef struct ConfigBrdDataPckt {
+//   byte           subCmd;
+//   byte           sctIdx;
+//   sct_metadata_t configData;
+// }config_brd_data_t;
 
 //**********    GLOBAL TYPES DECLARATION   ************//
 
 
-//**********    GLOBAL FUNC DECLARATION   ************//
+//**********    GLOBAL FUNC DECLARATION   *************//
 
 void bootUp();
 
+// void configBrd(serial_obj_t* nada, byte serialBuffer[], uint8_t mssgLen);
 void configBrd(byte serialBuffer[], uint8_t mssgLen);
 
-board_infos_ptrs_t getBoardInfosPtrs();
+brd_metadata_ptrs_t getBrdMgmtMetaDatasPtr();
 
 bool remainingHeapSpace(uint8_t spaceNeeded);
 bool remainingSctsPins();

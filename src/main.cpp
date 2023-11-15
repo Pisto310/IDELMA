@@ -1,6 +1,7 @@
 //Arduino.h is included in the header of the NeoPixel lib
 
 //#include "BTmodule.h"
+#include "Board.h"
 #include "User_Lib.h"
 #include "SK6812.h"
 #include "Serial_lib.h"
@@ -79,9 +80,9 @@ void setup() {
 
   bootUp();
 
-  // Serial.print((uint16_t) getSctInfosPtr(), HEX);
+  // Serial.print((uint16_t) getSctMetaDatasPtr(), HEX);
   // Serial.print(' ');
-  // Serial.print((sizeof(section_info_t) * getSctIndexTracker()));
+  // Serial.print((sizeof(sct_metadata_t) * getSctIndexTracker()));
 
   //*************   BT MODULE SET-UP   **************//
   
@@ -96,9 +97,9 @@ void setup() {
 
   //*************   BT MODULE SET-UP   **************//
 
-  // byte test[6] = {0, 5, 1, 2, 2, 4};
-  // byte testt[6] = {0, 3, 1, 4, 2, 0};
-  // byte testtt[6] = {0, 3, 1, 4, 2, 6};
+  // byte test[5] = {0, 0, 5, 178, 0};
+  // byte testt[5] = {0, 1, 6, 98, 1};
+  // byte testtt[5] = {0, 2, 3, 234, 2};
 
   // configBrd(test, 6);
   // updatingPixelAttr(0, 2, 0xFFFFFFFF);
@@ -121,6 +122,12 @@ void setup() {
 
   // sctsConfigSave();
 
+  // configBrd(test, 5);
+  // configBrd(testt, 5);
+  // configBrd(testtt, 5);
+
+  // dumpRam(Serial, &ramStart, 2480);
+
   //*************   STRIP AND LEDS SET-UP   *************//
   
   //neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
@@ -133,7 +140,7 @@ void setup() {
 
 void loop() {
 
-  if(ptrPxlInfo && !sparkleTest) {
+  if(pxlMetaDataPtr && !sparkleTest) {
     dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
     sparkleTest = !sparkleTest;
   }

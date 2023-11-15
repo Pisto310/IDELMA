@@ -6,6 +6,7 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 #include "Board.h"
 #include "SK6812.h"
+#include "Serial_lib.h"
 
 //**********    LOCAL VARIABLES   ************//
 
@@ -27,6 +28,12 @@ Description : Everything associated to the board, from user-defined serial numbe
 
 // byte* ptrBoardInfo = &boardInfo.sn;
 
+typedef struct ConfigBrdDataPckt {
+  byte           subCmd;
+  byte           sctIdx;
+  sct_metadata_t configData;
+}config_brd_data_t;
+
 const uint32_t sn = SERIAL_NUMBER;
 
 const firmware_t fwVersion = {
@@ -35,23 +42,29 @@ const firmware_t fwVersion = {
   .patchNum = FW_VERSION_PATCH
 };
 
-mutable_brdInfo_t sectionsInfo = {
+brdMgmt_attr_t sctsMgmtMetaData = {
   .capacity = MAX_NO_SCTS,
   .remaining = MAX_NO_SCTS,
   .assigned = 0
 };
 
-mutable_brdInfo_t pixelsInfo = {
+brdMgmt_attr_t pxlsMgmtMetaData = {
   .capacity = PXLINFO_HEAP_SIZE,
   .remaining = PXLINFO_HEAP_SIZE,
   .assigned = 0
 };
 
-board_infos_ptrs_t ptrBoardInfos = {
+brd_metadata_ptrs_t brdMgmtMetaDatasPtr = {
   .serialNumPtr = &sn,
   .fwVersionPtr = &fwVersion,
-  .sectionsInfoPtr = &sectionsInfo,
-  .pixelsInfoPtr = &pixelsInfo
+  .sctsMgmtMetaDataPtr = &sctsMgmtMetaData,
+  .pxlsMgmtMetaDataPtr = &pxlsMgmtMetaData
+};
+
+void (*configBrdFuncPtr[3]) (byte, sct_metadata_t) = {
+  createSection,
+  editSection,
+  deleteSection
 };
 
 //**********    LOCAL VARIABLES   ************//
@@ -62,7 +75,7 @@ board_infos_ptrs_t ptrBoardInfos = {
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
-void configSct(uint8_t sctIndex, uint8_t pxlCount);
+
 
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
@@ -80,48 +93,56 @@ void bootUp() {
 
 
 /// @brief Called when a board configuration command is received through serial
-///        (in SerialRequestHandler, Serial_lib.cpp).
-///        coreDataLen variable must reflect the amount of info contained in the 
-///        sctInfoTuple attr in Python code (index, pxlCount), so 2
-/// @param serialBuffer parsed and decoded message contained in serial buffer [byte array]
-/// @param mssgLen length of RX message (without command byte)
+///        (in SerialRequestHandler, Serial_lib.cpp). After the info as been
+///        extracted from the received packet, the appropriate function expressed 
+///        in the sub-command byte is called and necessary data is passed onto it.
+/// @param serialBuffer Parsed and decoded message contained in serial buffer [byte array]
+/// @param mssgLen Length of RX message (without command byte)
 void configBrd(byte serialBuffer[], uint8_t mssgLen) {
-  uint8_t coreDataLen = 2;
-    for (uint8_t i = 0; i < mssgLen; i += coreDataLen) {
-      uint8_t sctID = serialBuffer[i];
-      uint8_t pixelCount = serialBuffer[i + 1];
-      configSct(sctID, pixelCount);
+  
+  config_brd_data_t dataPckt;
+  sct_metadata_t* sctMetaDataPtr = &dataPckt.configData;
+  byte* sctMetaDataBytePtr = (byte*) sctMetaDataPtr;
+
+  for (uint8_t i = 0; i < mssgLen; i += sizeof(config_brd_data_t)) {
+    dataPckt.subCmd = serialBuffer[i];
+    dataPckt.sctIdx = serialBuffer[i + 1];
+    
+    for (uint8_t j = 0; j < sizeof(sct_metadata_t); j++) {
+      *(sctMetaDataBytePtr + j) = serialBuffer[i + j + (sizeof(config_brd_data_t) - sizeof(sct_metadata_t))];
     }
+    (*configBrdFuncPtr[dataPckt.subCmd]) (dataPckt.sctIdx, dataPckt.configData);
+  }
 }
 
 
 /// @brief Fetch the struct containing all pointers to the board metadata
-/// @return The local ptrBoardInfos struct
-board_infos_ptrs_t getBoardInfosPtrs() {
-  return ptrBoardInfos;
+/// @return The local brdMgmtMetaDatasPtr struct
+brd_metadata_ptrs_t getBrdMgmtMetaDatasPtr() {
+  return brdMgmtMetaDatasPtr;
 }
 
 
-/// @brief Indicates if there is enough heap space to create required pixels
+/// @brief Indicate if there is enough heap space to create required pixels
 /// @param spaceNeeded Number of pixels to be created
 /// @return True if enough space; False otherwise
 bool remainingHeapSpace(uint8_t spaceNeeded) {
-  return(pixelsInfo.remaining >= spaceNeeded);
+  return(pxlsMgmtMetaData.remaining >= spaceNeeded);
 }
 
 
-/// @brief Indicates if there are still pins available to create a new sct
+/// @brief Indicate if there are still pins available to create a new sct
 /// @return True if enough space; False otherwise
 bool remainingSctsPins() {
-  return(sectionsInfo.assigned < sectionsInfo.capacity);
+  return(sctsMgmtMetaData.assigned < sctsMgmtMetaData.capacity);
 }
 
 
-/// @brief Updates the sectionInfo attributes when a section is added
+/// @brief Update the sectionInfo attributes when a section is added
 void sectionsMgmtAdd() {
-  if(sectionsInfo.remaining) {
-    sectionsInfo.assigned++;
-    sectionsInfo.remaining--;
+  if(sctsMgmtMetaData.remaining) {
+    sctsMgmtMetaData.assigned++;
+    sctsMgmtMetaData.remaining--;
   }
 }
 
@@ -131,23 +152,23 @@ void sectionsMgmtAdd() {
 ///        pixels were added to an existing section
 /// @param spaceFilled Pixels added to new section or existing one 
 void pixelsMgmtAdd(uint8_t spaceFilled) {
-  if(pixelsInfo.remaining) {
-    pixelsInfo.assigned += spaceFilled;
-    pixelsInfo.remaining -= spaceFilled;
+  if(pxlsMgmtMetaData.remaining) {
+    pxlsMgmtMetaData.assigned += spaceFilled;
+    pxlsMgmtMetaData.remaining -= spaceFilled;
   }
 }
 
 
 /// @brief Updates the sectionInfo attributes when a section is removed
 void sectionsMgmtRemove() {
-  if(sectionsInfo.assigned) {
-    sectionsInfo.assigned--;
-    sectionsInfo.remaining++;
+  if(sctsMgmtMetaData.assigned) {
+    sctsMgmtMetaData.assigned--;
+    sctsMgmtMetaData.remaining++;
   }
 }
 
 
-// Only called within editSection() and clearSection() funcs
+// Only called within editSection() and deleteSection() funcs
 
 /// @brief Updates the pixelInfo attributes with how many pixels
 ///        were freed from removing pixels from a section. Since 
@@ -155,9 +176,9 @@ void sectionsMgmtRemove() {
 ///        is invoked in a section deletion
 /// @param spaceFreed 
 void pixelsMgmtRemove(uint8_t spaceFreed) {
-  if(pixelsInfo.assigned && (pixelsInfo.assigned - spaceFreed >= 0)) {
-    pixelsInfo.assigned -= spaceFreed;
-    pixelsInfo.remaining += spaceFreed;
+  if(pxlsMgmtMetaData.assigned && (pxlsMgmtMetaData.assigned - spaceFreed >= 0)) {
+    pxlsMgmtMetaData.assigned -= spaceFreed;
+    pxlsMgmtMetaData.remaining += spaceFreed;
   }
 }
 
@@ -169,7 +190,7 @@ void eepromReset() {
 
 
 void allOff() {
-  for (uint8_t i = 0; i < getSctIndexTracker(); i++) {
+  for (uint8_t i = 0; i < sctsMgmtMetaData.assigned; i++) {
     stripOFF(i);
   }
 }
@@ -184,21 +205,6 @@ void allOff() {
 
 //**********    LOCAL FUNC DEFINITION   ************//
 
-
-/// @brief Configure/Modify/Delete sections with info received through serial
-/// @param sctIndex Index of the section
-/// @param pxlCount Number of pixels to be included in section
-void configSct(uint8_t sctIndex, uint8_t pxlCount) {
-  if(sctIndex == getSctIndexTracker()) {
-    setupSection(pxlCount);
-  }
-  else if(!pxlCount) {
-    clearSection(sctIndex);
-  }
-  else {
-    editSection(sctIndex, pxlCount);
-  }
-}
 
 
 //**********    LOCAL FUNC DEFINITION   ************//

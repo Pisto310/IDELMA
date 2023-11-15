@@ -44,13 +44,14 @@ typedef struct PixelInfos {
   uint32_t            hsvColor;             // actual hsv color of the pixel. Conversion error from hsv to rgbw causes trouble for hsvFade
   uint32_t            rgbwTarget;           // registered target RGBW color for RGB_FADE or WHT_FADE actions
   uint32_t            hsvTarget;            // registered target HSV color for HSV_FADE action
-}pixel_info_t;
+}pxl_metadata_t;
 
-// struct to store the info of a section of pixel
-typedef struct SectionInfos {
-  uint8_t pxlCount;
-  uint8_t brightness;
-}section_info_t;
+// struct to store the metadatas of a section of pixel
+typedef struct SctMetaDatas {
+  byte pxlCount;
+  byte brightness;
+  byte singlePxlCtrl;
+}sct_metadata_t;
 
 
 //**********   SK6812 STRIPS DECLARATION   **********//
@@ -71,29 +72,33 @@ extern Adafruit_NeoPixel sct_11;
 
 
 // 2D array containing the section number (row) and each pixel of that section (column)
-// volatile extern pixel_info_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
+// volatile extern pxl_metadata_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
 
 //**********   SK6812 STRIPS DECLARATION   **********//
 
 
-extern pixel_info_t* ptrPxlInfo;
-//extern pixel_info_t* arrPtrPxlInfo[];
+extern pxl_metadata_t* pxlMetaDataPtr;
+//extern pxl_metadata_t* pxlMetaDataPtrArr[];
 //extern Adafruit_NeoPixel neopxlObjArr[];
 
 
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
-void setupSection(uint8_t pxlCount, uint8_t brightness = 50, bool sctsAsPxl = false);
-void clearSection(uint8_t section);
-void editSection(uint8_t section, uint8_t rxedPxlCount);
+void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
+void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
+void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
+
+// void createSection(uint8_t pxlCount, uint8_t brightness, bool sctsAsPxl);
+// void deleteSection(uint8_t section);
+// void editSection(uint8_t section, uint8_t rxedPxlCount);
                 
                 // TEMPORARY //
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
                 // TEMPORARY //
 
 uint8_t getSctIndexTracker();
-section_info_t getSctInfos(uint8_t index);
-section_info_t* getSctInfosPtr();
+sct_metadata_t getSctMetaDatas(uint8_t index);
+sct_metadata_t* getSctMetaDatasPtr();
 
 void sctsConfigSave();
 void sctsConfigRead();
