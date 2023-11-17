@@ -78,6 +78,9 @@ void setup() {
   usbSerial.serialPort = &Serial;
   //Serial.setTimeout(1);
 
+  // debugToc();
+  // sctsConfigRst();
+
   bootUp();
 
   // Serial.print((uint16_t) getSctMetaDatasPtr(), HEX);
@@ -99,7 +102,7 @@ void setup() {
 
   // byte test[5] = {0, 0, 5, 178, 0};
   // byte testt[5] = {0, 1, 6, 98, 1};
-  // byte testtt[5] = {0, 2, 3, 234, 2};
+  // byte testtt[5] = {0, 2, 3, 234, 1};
 
   // configBrd(test, 6);
   // updatingPixelAttr(0, 2, 0xFFFFFFFF);
@@ -120,11 +123,11 @@ void setup() {
 
   // dumpRam(Serial, &ramStart, 2480);
 
-  // sctsConfigSave();
-
   // configBrd(test, 5);
   // configBrd(testt, 5);
   // configBrd(testtt, 5);
+
+  // sctsConfigSave();
 
   // dumpRam(Serial, &ramStart, 2480);
 

@@ -87,6 +87,8 @@ void (*configBrdFuncPtr[3]) (byte, sct_metadata_t) = {
 //**********    GLOBAL FUNC DEFINITION   ************//
 
 
+/// @brief Every function to run at boot-up are to be inserted
+///        in this function called at power-up (setup in main.cpp)
 void bootUp() {
   sctsConfigRead();
 }

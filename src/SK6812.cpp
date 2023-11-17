@@ -43,8 +43,9 @@ static uint8_t sctIndexTracker = 0;
 static byte* sctIdxTrackerPtr = &(getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr)->assigned;
 
 eeprom_chapter_t sctsMetaDataChap = {
-  .startIdx   = EEPROM_PAGE_IDX(EEPROM_SCTS_INFO_START_PAGE),
-  .bytesCount = (sizeof(sct_metadata_t) * MAX_NO_SCTS)
+  .tocStatusIndic = sctIdxTrackerPtr,
+  .firstPgeNbr    = EEPROM_SCTS_METADATA_FIRST_PAGE,
+  .bytesCount     = (sizeof(sct_metadata_t) * MAX_NO_SCTS)
 };
 
 //**********    LOCAL VARIABLES DECLARATION   ************//
@@ -251,19 +252,6 @@ void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev) {
 }
 
 
-/// @brief Verify if a previous section config save is contained in
-///        the EEPROM.
-/// @return A boolean indicating if there is a saved config (1) or not (0)
-bool checkSctsConfigSave() {
-  if (eepromByteRead(sctsMetaDataChap.startIdx)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
-}
-
-
 /// @brief Save user configuration into EEPROM for future
 ///        boot-up use.
 void sctsConfigSave() {
@@ -274,8 +262,7 @@ void sctsConfigSave() {
 /// @brief Reads and extract the saved sections configuration
 ///        in EEPROM if there is one. Called at boot-up.
 void sctsConfigRead() {
-  // eepromReset(sctsMetaDataChap);
-  if (checkSctsConfigSave()) {
+  if (getChapStatusIndic(sctsMetaDataChap)) {
     eepromReadChap(sctsMetaDataChap, (byte*) sctsMetaDatasArr);
     setupFromSave();
   }
@@ -284,7 +271,7 @@ void sctsConfigRead() {
 
 /// @brief Simple reset eeprom sct infos chap (for debug purposes)
 void sctsConfigRst() {
-  if (checkSctsConfigSave()) {
+  if (getChapStatusIndic(sctsMetaDataChap)) {
     eepromReset(sctsMetaDataChap);
   }
 }
@@ -292,14 +279,10 @@ void sctsConfigRst() {
 
 /// @brief Setup board from a peviously saved configuration
 void setupFromSave() {
-  for (uint8_t i = 0; i < MAX_NO_SCTS; i++) {
-    return;
-    // uint8_t pixelCount = sctsMetaDatasArr[i].pxlCount;
-    // uint8_t brightness = sctsMetaDatasArr[i].brightness;
-    // bool singlePxlCtrl = sctsMetaDatasArr[i].singlePxlCtrl;
-    // if (pixelCount && brightness) {
-    //   createSection(pixelCount, brightness, singlePxlCtrl);
-    // }
+  for (uint8_t i = 0; i < getChapStatusIndic(sctsMetaDataChap); i++) {
+    uint8_t memBlocks = (uint8_t) requiredHeapBlocks(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
+    updtPxlInst(memBlocks);
+    updtMgmtMetaData(memBlocks);
   }
 }
 
