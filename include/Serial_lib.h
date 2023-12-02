@@ -10,36 +10,23 @@ Description : All things serial lib header file
 #include "Arduino.h"
 #include "HardwareSerial.h"
 
-#if SERIAL_RX_BUFFER_SIZE >= SERIAL_TX_BUFFER_SIZE
-#define BUFFER_LEN  SERIAL_RX_BUFFER_SIZE
-#else
-#define BUFFER_LEN  SERIAL_TX_BUFFER_SIZE
-#endif
-
-// typedef enum {
-//   SER_IDLE,
-//   SER_AVAILABLE,
-//   SER_RCVED,
-//   SER_DECODE,
-//   SER_SEND_BOARD_INFOS,
-//   SER_SAVE_SETTINGS,
-//   SER_SET_COLOR,
-//   RESERVED_6,
-//   RESERVED_7
-// }serial_status_t;
+#define USER_BUFFER_SIZE    128
+// #if SERIAL_RX_BUFFER_SIZE >= SERIAL_TX_BUFFER_SIZE
+// #define BUFFER_LEN  SERIAL_RX_BUFFER_SIZE - 1
+// #else
+// #define BUFFER_LEN  SERIAL_TX_BUFFER_SIZE - 1
+// #endif
 
 typedef enum serial_rx {
   SER_RX_IDLE,
   SER_RX_RQST,
   SER_RX_CMPLT,
-  SER_RX_FRZ,
-  SER_RX_DEADEND
+  SER_RX_FRZ
 } serial_rx_state;
 
 typedef enum serial_tx {
   SER_TX_IDLE,
   SER_TX_RQST,
-  SER_TX_RDY,
   SER_TX_CMPLT,
   SER_TX_FRZ
 } serial_tx_state;
@@ -58,7 +45,7 @@ typedef enum rqst_action {
 } rqst_action_t;
 
 typedef struct serial_buffer{
-  byte buffer[BUFFER_LEN];
+  byte buffer[USER_BUFFER_SIZE];
   uint8_t mssgLen;
 } ser_buffer_t;
 

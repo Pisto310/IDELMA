@@ -34,7 +34,7 @@ void serialRqstHandler(serial_obj_t *serialObj);
 uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst);
 void txDataEncoding(ser_buffer_t *ser, byte *infoStartAddr, uint8_t infoBlockSize);
 
-void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
+// void clrBuffData(ser_buffer_t *ser, uint8_t startIndex = 0, uint8_t stopIndex = BUFFER_LEN);
 
 void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes);
 
@@ -48,27 +48,22 @@ void serialRxCheck(serial_obj_t *serialObj) {
   switch (serialObj->rxStatus) {
   
   case SER_RX_RQST:
-    serialObj->RX.mssgLen = (*serialObj->serialPort).readBytes(serialObj->RX.buffer, BUFFER_LEN);
-    if(serialObj->RX.mssgLen) {
-      // Read was succesful
-      serialObj->rxStatus = SER_RX_CMPLT;
-    }
-    else {
-      // Code breaking case, not supposed to be here
-      serialObj->rxStatus = SER_RX_DEADEND;
-      // Serial.print("Ain't supposed to be here!");
+    while ((*serialObj->serialPort).available()) {
+      serialObj->RX.buffer[serialObj->RX.mssgLen] = (*serialObj->serialPort).read();
+      if (serialObj->RX.buffer[serialObj->RX.mssgLen] != lineFeed) {
+        serialObj->RX.mssgLen++;
+      }
+      else {
+        serialObj->rxStatus = SER_RX_CMPLT;
+      }
     }
     break;
 
   case SER_RX_CMPLT:
-
     serialObj->txStatus = SER_TX_IDLE;
-    // serialWrite(serialObj, serialObj->RX.buffer, 3);
-    // serialObj->RX.mssgLen = rxDataParsing(serialObj, &serialObj->RX, &serialObj->pendingRqst);
-    // serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
     serialObj->RX.mssgLen = rxDataParsing(&serialObj->RX, &serialObj->pendingRqst);
-    serialObj->rxStatus = SER_RX_IDLE;
     serialRqstHandler(serialObj);
+    serialObj->rxStatus = SER_RX_IDLE;
     break;
 
   case SER_RX_FRZ:
@@ -77,8 +72,8 @@ void serialRxCheck(serial_obj_t *serialObj) {
   
   default:
     // default case considers that rxStatus is IDLE
-    //delay(3000);
-    if(Serial.available()) {
+    if ((*serialObj->serialPort).available()) {
+      serialObj->RX.mssgLen = 0;
       serialObj->rxStatus = SER_RX_RQST;
       serialObj->txStatus = SER_TX_FRZ;
     }
@@ -94,22 +89,15 @@ void serialTxCheck(serial_obj_t *serialObj) {
 
   case SER_TX_RQST:
     // Adding the 'line feed' (\n) character and incrementing nbr of bytes in buffer
-    if(serialObj->TX.mssgLen) {
-      serialObj->TX.buffer[serialObj->TX.mssgLen] = lineFeed;
-      serialObj->TX.mssgLen += 1;
-      serialObj->txStatus = SER_TX_RDY;
-    }
-    break;
-  
-  case SER_TX_RDY:
-    // Send buffer content on serial port    
+    serialObj->TX.buffer[serialObj->TX.mssgLen] = lineFeed;
+    serialObj->TX.mssgLen++;
     (*serialObj->serialPort).write(serialObj->TX.buffer, serialObj->TX.mssgLen);
-    serialObj->TX.mssgLen = 0;
     serialObj->txStatus = SER_TX_CMPLT;
     break;
 
   case SER_TX_CMPLT:
     // Unfreeze RX
+    serialObj->TX.mssgLen = 0;
     serialObj->rxStatus = SER_RX_IDLE;
     serialObj->txStatus = SER_TX_IDLE;
     break;
@@ -119,7 +107,10 @@ void serialTxCheck(serial_obj_t *serialObj) {
     break;
   
   default:
-    // default TBD
+    if (serialObj->TX.mssgLen) {
+      serialObj->txStatus = SER_TX_RQST;
+      serialObj->rxStatus = SER_RX_FRZ;
+    }
     break;
   }
 }
@@ -132,8 +123,8 @@ void serialTxCheck(serial_obj_t *serialObj) {
 void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataBlockSize) {
   // serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, ptr2MetaData, metaDataBlockSize);
   txDataEncoding(&serialObj->TX, ptr2MetaData, metaDataBlockSize);
-  serialObj->txStatus = SER_TX_RQST;
-  serialObj->rxStatus = SER_RX_FRZ;
+  // serialObj->txStatus = SER_TX_RQST;
+  // serialObj->rxStatus = SER_RX_FRZ;
 }
 
 
@@ -141,8 +132,8 @@ void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataB
 /// @param serialObj Serial Object to send the ACK signal to
 void sendAck(serial_obj_t *serialObj) {
   txDataEncoding(&serialObj->TX, (byte*) &ack, sizeof(ack));
-  serialObj->txStatus = SER_TX_RQST;
-  serialObj->rxStatus = SER_RX_FRZ;
+  // serialObj->txStatus = SER_TX_RQST;
+  // serialObj->rxStatus = SER_RX_FRZ;
 }
 
 
@@ -173,7 +164,7 @@ void serialRqstHandler(serial_obj_t *serialObj) {
     }
   case RQST_SCTS_ARR:
     {
-      sendMetaData(serialObj, (byte*) getSctMetaDatasPtr(), (sizeof(sct_metadata_t) * getSctIndexTracker()));
+      sendMetaData(serialObj, (byte*) getSctMetaDatasPtr(), (sizeof(sct_metadata_t) * getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr->assigned));
       break;
     }
   case RQST_CONFIG_BRD:
@@ -231,8 +222,8 @@ uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
   uint8_t extractedNbr = 0;
   uint8_t newLen = 0;
 
-  for(uint8_t i = 0; i < ser->mssgLen; i++) {
-    if(ser->buffer[i] != lineFeed && ser->buffer[i] != spaceChar) {
+  for(uint8_t i = 0; i <= ser->mssgLen; i++) {
+    if(ser->buffer[i] != spaceChar && i < ser->mssgLen) {
       extractedNbr += convertAsciiToHex(ser->buffer[i]) * powOfTen(unitsTracker);
       unitsTracker++;
     }
@@ -248,9 +239,6 @@ uint8_t rxDataParsing(ser_buffer_t *ser, rqst_action_t *receivedRqst) {
         }
         unitsTracker = 0;
         extractedNbr = 0;
-      }
-      if(ser->buffer[i] == lineFeed) {
-        break;
       }
     }
   }
@@ -303,11 +291,11 @@ void txDataEncoding(ser_buffer_t *ser, byte *infoStartAddr, uint8_t infoBlockSiz
 
 
 // Clearing unwanted characters in a serial buffer
-void clrBuffData(ser_buffer_t *ser, uint8_t startIndex, uint8_t stopIndex) {
-  for(uint8_t i = startIndex; i < stopIndex; i++) {
-    ser->buffer[i] = 0;
-  }
-}
+// void clrBuffData(ser_buffer_t *ser, uint8_t startIndex, uint8_t stopIndex) {
+//   for(uint8_t i = startIndex; i < stopIndex; i++) {
+//     ser->buffer[i] = 0;
+//   }
+// }
 
 
 
@@ -315,13 +303,14 @@ void clrBuffData(ser_buffer_t *ser, uint8_t startIndex, uint8_t stopIndex) {
 
 // Homemade Serial write func that adds the lineFeed char at the end of data to send
 void serialWrite(serial_obj_t *serialObj, byte dataToWrite[], uint8_t nbrOfBytes) {
-  byte serialArr[nbrOfBytes + 1];
-  serialArr[nbrOfBytes] = lineFeed;
+  // byte serialArr[nbrOfBytes + 1];
+  // serialArr[nbrOfBytes] = lineFeed;
 
-  for(uint8_t i = 0; i < (nbrOfBytes); i++) {
-    serialArr[i] = dataToWrite[i];
-  }
-  serialObj->serialPort->write(serialArr, nbrOfBytes + 1);
+  // for(uint8_t i = 0; i < (nbrOfBytes); i++) {
+  //   serialArr[i] = dataToWrite[i];
+  // }
+  // serialObj->serialPort->write(serialArr, nbrOfBytes + 1);
+  serialObj->serialPort->write(dataToWrite, nbrOfBytes);
 }
 
 //**********    DEBUG FUNCTION   ************//
