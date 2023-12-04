@@ -17,6 +17,7 @@ Description : All things serial lib source file
 //**********    LOCAL VARIABLES DECLARATION   ************//
 
 const char ack         = 0x06;
+const char nak         = 0x15;
 const char lineFeed    = '\n';
 const char spaceChar   = ' ';
 
@@ -123,8 +124,6 @@ void serialTxCheck(serial_obj_t *serialObj) {
 void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataBlockSize) {
   // serialObj->TX.mssgLen = txDataEncoding(serialObj->TX.buffer, ptr2MetaData, metaDataBlockSize);
   txDataEncoding(&serialObj->TX, ptr2MetaData, metaDataBlockSize);
-  // serialObj->txStatus = SER_TX_RQST;
-  // serialObj->rxStatus = SER_RX_FRZ;
 }
 
 
@@ -132,8 +131,13 @@ void sendMetaData(serial_obj_t *serialObj, byte *ptr2MetaData, uint8_t metaDataB
 /// @param serialObj Serial Object to send the ACK signal to
 void sendAck(serial_obj_t *serialObj) {
   txDataEncoding(&serialObj->TX, (byte*) &ack, sizeof(ack));
-  // serialObj->txStatus = SER_TX_RQST;
-  // serialObj->rxStatus = SER_RX_FRZ;
+}
+
+
+/// @brief Sends a "NAK" char over serial to let the PC know the request cannot be processed
+/// @param serialObj Serial Object to send the NAK signal to
+void sendNak(serial_obj_t *serialObj) {
+  txDataEncoding(&serialObj->TX, (byte*) &nak, sizeof(nak));
 }
 
 
@@ -164,7 +168,12 @@ void serialRqstHandler(serial_obj_t *serialObj) {
     }
   case RQST_SCTS_ARR:
     {
-      sendMetaData(serialObj, (byte*) getSctMetaDatasPtr(), (sizeof(sct_metadata_t) * getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr->assigned));
+      if (getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr->assigned) {
+        sendMetaData(serialObj, (byte*) getSctMetaDatasPtr(), (sizeof(sct_metadata_t) * getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr->assigned));
+      }
+      else {
+        sendNak(serialObj);
+      }
       break;
     }
   case RQST_CONFIG_BRD:
