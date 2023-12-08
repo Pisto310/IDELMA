@@ -39,7 +39,7 @@ void setTocChapStatus(uint8_t chapPage, uint8_t chapLen, uint8_t statusIndic);
 /// @param eepromChap Chapter obj of which to check the status
 /// @return Status Indicator. If non-zero, it means the chapter is written.
 ///         Depending on the chapter type, this indicator's value may have
-///         certain meaning
+///         a certain meaning
 uint8_t getChapStatusIndic(eeprom_chapter_t eepromChap) {
   return EEPROM.read(eepromChap.firstPgeNbr);
 }

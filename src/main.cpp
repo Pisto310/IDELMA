@@ -18,16 +18,12 @@
 
 uint16_t ramStart = 0x0200;
 
-bool sparkleTest = 1;
+// bool sparkleTest = 1;
 
 serial_obj_t usbSerial;
 
 
 /*
-char play[5] = "play";
-char stop[5] = "stop";
-
-char btBuffer[64];
 
 bool hueTest = 0;
 uint32_t hsvTest;
@@ -55,18 +51,12 @@ uint32_t lowBrightRed  = 0x80252500;
 uint32_t randomTarget  = 0xc4247800;//0xc4234900;
 
 bool pxlColorOutTest = 0;
-
-uint8_t serialTestSct = 0;
-uint8_t serialTestPxl = 0;
 */
 
 //************    TEST VAR DECLARATIOIN     **************
 
 
-uint16_t heartBeat = 500;                  // in milliseconds
-
-uint8_t brightnessLED = 255;
-
+// uint16_t heartBeat = 500;                  // in milliseconds
 
 void setup() {
 
@@ -111,8 +101,6 @@ void setup() {
   // updatingPixelAttr(2, 1, 0xAAAAAAAA);
   // updatingPixelAttr(2, 3, 0xAAAAAAAA);
 
-  // dumpRam(Serial, &ramStart, 2480);
-
   // configBrd(testt, 6);
 
   // configBrd(testtt, 6);
@@ -143,12 +131,12 @@ void setup() {
 
 void loop() {
 
-  if(pxlMetaDataPtr && !sparkleTest) {
-    dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
-    sparkleTest = !sparkleTest;
-  }
+  // if(pxlMetaDataPtr && !sparkleTest) {
+  //   dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
+  //   sparkleTest = !sparkleTest;
+  // }
   
-  mcuHeartBeat(heartBeat);
+  mcuHeartBeat(HEARTBEAT_RHYTHM);
 
   // Serial.write(array_1, sizeof(array_1));
 	// delay(1000);

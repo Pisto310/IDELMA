@@ -12,6 +12,8 @@ Description : Every metadatas, pins configuration and size/limitation set for MC
 #include "User_Lib.h"
 #include "EEPROM_lib.h"
 
+#define HEARTBEAT_RHYTHM                 500U
+
 #define SERIAL_NUMBER                    0x12345678U
 
 #define FW_VERSION_MAJOR                 0

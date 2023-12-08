@@ -9,32 +9,13 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "Board.h"
 #include "EEPROM_lib.h"
 #include "User_Lib.h"
+#include "Color_Formatting.h"
+#include "LED_Actions.h"
 
-
-typedef enum PixelStates{
-  IDLE,                                     // LED is ready for action
-  HSV_FADE,                                 // LED is in the process of fading in HSV color space
-  RGB_FADE,                                 // LED is in the process of fading in RGB color space
-  BLINK_ONCE,                               // LED is set to blink only once
-  BLINK,                                    // LED is blinking
-  SPARKLE                                   // LED is in the process of sparkling
-}pixel_state_t;
-
-typedef struct PixelActionTime {
-  int32_t actionOneTime;                    // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
-  int32_t actionTwoTime;                    // time between each step for sat (hueFade) or grn (rgbFade)
-  int32_t actionThreeTime;                  // time between each step for val (hueFade) or blu (rgbFade)
-}pixel_actionTime_t;
-
-typedef struct PixelActionStartTime {
-  uint32_t actionOneStart;                  // start time for action one
-  uint32_t actionTwoStart;                  // start time for action two
-  uint32_t actionThreeStart;                // start time for action three
-}pixel_actionStart_t;
 
 // struct to store the info of each pixel
 // each struct occupies a space of 44 bytes
-typedef struct PixelInfos {
+typedef struct PixelMetaDatas {
   uint8_t             pxlSctID;             // draws a parallel to a neopxlObj array for easier matching when doing actions
   uint8_t             pxlID;                // pixel number in the strip/neopxlObj
   pixel_state_t       pxlState;             // pixel state
@@ -84,19 +65,15 @@ extern pxl_metadata_t* pxlMetaDataPtr;
 
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
+
 void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
 void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
 void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
-
-// void createSection(uint8_t pxlCount, uint8_t brightness, bool sctsAsPxl);
-// void deleteSection(uint8_t section);
-// void editSection(uint8_t section, uint8_t rxedPxlCount);
                 
                 // TEMPORARY //
 void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
                 // TEMPORARY //
 
-uint8_t getSctIndexTracker();
 sct_metadata_t getSctMetaDatas(uint8_t index);
 sct_metadata_t* getSctMetaDatasPtr();
 
@@ -104,34 +81,8 @@ void sctsConfigSave();
 void sctsConfigRead();
 void sctsConfigRst();
 
-// void setupSaveToEeprom(void);
-// void setupFromEepromSave(void);
-
-// void eepromMemCheck(void);
-
-void pixelActionsHandler(void);
-
-// void neopxlObjSetUp(Adafruit_NeoPixel &neopxlObj, Adafruit_NeoPixel neopxlArr[], uint8_t *ptrToSctCount, uint8_t brightness, uint32_t startColor = 0);
-// void nextColorVal(uint8_t *nextColor, int32_t *actionTime, uint32_t *actionStart, uint8_t targetColor, uint8_t incrDecr = 1);
-
-// void pxlIterator(uint8_t sctCount);
-
-void pxlStateUpdt(uint8_t section, uint8_t pixel, pixel_state_t state);
-void pxlColorUpdt(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0, bool targetUpdt = 0);
-void pxlColorOut(uint8_t section, uint8_t pixel, uint32_t color, bool hsvFormat = 0);
-void pxlOFF(uint8_t section, uint8_t pixel);
-
-void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 void stripOFF(uint8_t section);
 
-// void blinkOnce(uint8_t section, uint8_t pixel, uint32_t color, uint16_t blinkTime, bool blinkState = 1); 
-// void hsvFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime);
-// void hsvFade(uint8_t section, uint8_t pixel);
-// void rgbFadeInit(uint8_t section, uint8_t pixel, uint32_t targetRGB, int32_t fadeTime);
-// void rgbFade(uint8_t section, uint8_t pixel);
-
-// void sparkleInit(uint8_t section);
-// void sparkleSct(uint8_t section, uint8_t pixel);
 
 //**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
