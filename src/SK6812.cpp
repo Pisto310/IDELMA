@@ -57,14 +57,12 @@ eeprom_chapter_t sctsMetaDataChap = {
 //**********    LOCAL FUNCTIONS DECLARATION   ************//
 
 
-byte sctMemBlocksUsage(byte pxlCount, byte singlePxlCtrl);
-
-void editPxlCount(uint8_t sctID, uint8_t newPxlCount);
+// void editPxlCount(uint8_t sctID, uint8_t newPxlCount);
 
 void setupFromSave();
 
-void eraseSctMemBlocks(uint8_t section, uint8_t sctNewBlockCount);
-void writeSctMemBlocks(uint8_t section, uint8_t sctNewBlockCount);
+// void eraseSctMemBlocks(uint8_t section, uint8_t sctNewBlockCount);
+// void writeSctMemBlocks(uint8_t section, uint8_t sctNewBlockCount);
 
 // Following funcs to be moved to other files later
 void pxlStateUpdt(uint8_t section, uint8_t pixel, pixel_state_t state);
@@ -81,6 +79,17 @@ void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 
 
 //**********    LOCAL FUNCTIONS DEFINITION   ************//
+
+
+/// @brief Indicates the number of memory block needed or used for
+///        a given section
+/// @param pxlCount Number of pixel to be lit up on the strip
+/// @param singlePxlCtrl Indicating if whole strip is seen as a single pixel
+///                      (Acting as a bool)
+/// @return Required amount of blocks needed or used in heap
+byte sctMemBlocksUsage(byte pxlCount, byte singlePxlCtrl) {
+  return singlePxlCtrl ? singlePxlCtrl : pxlCount;
+}
 
 
 /// @brief Update the necessary pxl_metadata_t parameters for each pixels of a section
@@ -100,13 +109,27 @@ void updtPxlsMetaData(uint8_t sectionIndex, uint8_t neededBlockSpace, uint8_t px
 /// @brief Update the necessary Neopixel object attributes through method calling when
 ///        creating a section or after having edited an existing one
 /// @param sectionIndex Index of the section for which to edit attr Neopixel attributes
-void updtNeopxlObj(uint8_t sectionIndex) {
-  if (sctsMetaDatasArr[sectionIndex].pxlCount != neopxlObjArr[sectionIndex].numPixels()) {
-    neopxlObjArr[sectionIndex].updateLength((uint16_t) sctsMetaDatasArr[sectionIndex].pxlCount);
-  }
+// void updtNeopxlObj(uint8_t sectionIndex) {
+//   if (sctsMetaDatasArr[sectionIndex].pxlCount != neopxlObjArr[sectionIndex].numPixels()) {
+//     neopxlObjArr[sectionIndex].updateLength((uint16_t) sctsMetaDatasArr[sectionIndex].pxlCount);
+//   }
 
-  if (sctsMetaDatasArr[sectionIndex].brightness != neopxlObjArr[sectionIndex].getBrightness()) {
-    neopxlObjArr[sectionIndex].setBrightness(sctsMetaDatasArr[sectionIndex].brightness);
+//   if (sctsMetaDatasArr[sectionIndex].brightness != neopxlObjArr[sectionIndex].getBrightness()) {
+//     neopxlObjArr[sectionIndex].setBrightness(sctsMetaDatasArr[sectionIndex].brightness);
+//   }
+// }
+
+/// @brief Update the necessary Neopixel object attributes through method calling when
+///        creating a section or after having edited an existing one
+/// @param neoPxlObj     A NeoPixel object to check for attributes modifications
+/// @param pixelCount    Pixel count with which to compare actual pixel count of NeoPxl obj
+/// @param brightnessVal Brightness value with which to compare actual value of NeoPxl obj
+void updtNeoPxlObj(Adafruit_NeoPixel* neoPxlObj, uint8_t pixelCount, uint8_t brightnessVal) {
+  if (pixelCount != (*neoPxlObj).numPixels()) {
+    (*neoPxlObj).updateLength((uint16_t) pixelCount);
+  }
+  if (brightnessVal != (*neoPxlObj).getBrightness()) {
+    (*neoPxlObj).setBrightness(brightnessVal);
   }
 }
 
@@ -116,15 +139,107 @@ void updtNeopxlObj(uint8_t sectionIndex) {
 /// @param usedMemBlocks Signed number indicating count of memory blocks freed or 
 ///                      used in the creation or editing process (signage indicates
 ///                      action to undertake)
-void updtMgmtMetaDatas(int8_t usedMemBlocks) {
+void updtPxlsMgmtMetaData(int8_t usedMemBlocks) {
   if (usedMemBlocks & 0x80) {
     pixelsMgmtRemove(~usedMemBlocks + 1);
-    sectionsMgmtRemove();
   }
-  else {
+  else if (usedMemBlocks) {
     pixelsMgmtAdd(usedMemBlocks);
-    sectionsMgmtAdd();
   }
+}
+
+
+/// @brief Removes mem blocks in any given section. It's done in a bare-metal kind of way,
+///        which is by shifting affected bytes in the heap. The number of bytes to shift
+///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
+///        there are to shift. When reaching the new address of pxlMetaDataPtr, all bytes
+///        are then overwritten with 0x00 as a way to reset them for future use.
+///        Note that this 0x00 byte reset isn't executed when erasing the last sct
+///        because it will be updated when the next one is created
+/// @param sctID Index of the section from which to remove memory blocks
+/// @param sctNewBlockCount New block count (must be lower than original)
+void eraseSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {  
+  
+  uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
+
+  // uint8_t  freedHeapBlocks = sctsMetaDatasArr[sctID].pxlCount - sctNewBlockCount;
+  uint8_t  freedHeapBlocks = actualBlockCount - sctNewBlockCount;
+  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
+
+  byte *heapEraseAddr           = (byte*)pxlMetaDataPtr - freedHeapBytes;
+  byte *heapOverWriteDestAddr   = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount);
+  byte *heapOverWriteSourceAddr = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) + freedHeapBytes;
+
+  uint8_t blocksToShift = 0;
+
+  pxlMetaDataPtr = (pxl_metadata_t*) heapEraseAddr;
+
+  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
+  // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
+  for (uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
+    blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
+    // blocksToShift += sctsMetaDatasArr[i].pxlCount;
+    pxlMetaDataPtrArr[i] -= freedHeapBlocks;
+  }
+  uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
+
+  // This where the overwriting is done
+  while (bytesToShift) {
+    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
+    if (heapOverWriteSourceAddr == heapEraseAddr) {
+      *heapEraseAddr = 0x00;
+      heapEraseAddr += BYTE_SIZE;
+    }
+    heapOverWriteDestAddr += BYTE_SIZE;
+    heapOverWriteSourceAddr += BYTE_SIZE;
+    bytesToShift--;
+  }
+}
+
+
+/// @brief Adds mem blocks in any given section. It's done in a bare-metal kind of way,
+///        which is by shifting affected bytes in the heap. The number of bytes to shift
+///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
+///        there are to shift. Once the last address of the new pixel blocks is reached,
+///        existing bytes are overwritten with 0x00 to prevent any strange behavior.
+/// @param sctID Index of the section to add memory blocks to
+/// @param sctNewBlockCount New increased block count (must be higher than original)
+void writeSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {
+
+  uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
+
+  // uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - sctsMetaDatasArr[sctID].pxlCount;
+  uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - actualBlockCount;
+  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
+
+  byte *heapOverWriteDestAddr   = (byte*)pxlMetaDataPtr + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
+  byte *heapOverWriteSourceAddr = (byte*)pxlMetaDataPtr - BYTE_SIZE;                              // Last addr where there is actual info
+  byte *heapMemClearAddr        = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
+
+  uint8_t blocksToShift = 0;
+
+  pxlMetaDataPtr = (pxl_metadata_t*)heapOverWriteDestAddr + BYTE_SIZE;
+
+  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
+  for(uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
+    blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
+    // blocksToShift += sctsMetaDatasArr[i].pxlCount;
+    pxlMetaDataPtrArr[i] += toBeUsedHeapBlocks;
+  }
+  uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
+
+  // This where the overwriting is done
+  while(bytesToShift) {
+    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
+    if(heapOverWriteSourceAddr == heapMemClearAddr) {
+      *heapMemClearAddr = 0x00;
+      heapMemClearAddr -= BYTE_SIZE;
+    }
+    heapOverWriteDestAddr -= BYTE_SIZE;
+    heapOverWriteSourceAddr -= BYTE_SIZE;
+    bytesToShift--;
+  }
+  updtPxlsMetaData(sctID, sctNewBlockCount, actualBlockCount);
 }
 
 
@@ -149,14 +264,14 @@ void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
     pxlMetaDataPtrArr[sctIdx] = pxlMetaDataPtr;
     pxlMetaDataPtr += memBlocks;
 
-    // sctsMetaDatasArr[sctIdx] has to have been updated before calling updtNeopxlObj() func
     if (!sctsMetaDatasArr[sctIdx].pxlCount) {
       sctsMetaDatasArr[sctIdx] = sctMetaDataPckt;
     }
 
     updtPxlsMetaData(sctIdx, memBlocks);
-    updtNeopxlObj(sctIdx);
-    updtMgmtMetaDatas((int8_t) memBlocks);
+    updtNeoPxlObj(&neopxlObjArr[sctIdx], sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].brightness);
+    updtPxlsMgmtMetaData((int8_t) memBlocks);
+    sectionsMgmtAdd();
 
     neopxlObjArr[sctIdx].begin();
 
@@ -173,39 +288,22 @@ void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 ///                        contained in this input param
 void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 
-    //**debug**//
-    stripOFF(sctIdx);
-    //**debug**//
+  uint8_t newMemBlockCount = sctMemBlocksUsage(sctMetaDataPckt.pxlCount, sctMetaDataPckt.singlePxlCtrl);
+  uint8_t actualMemBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl);
+  int8_t blockCountDiff = newMemBlockCount - actualMemBlockCount;
 
-    uint8_t newMemBlockCount = sctMemBlocksUsage(sctMetaDataPckt.pxlCount, sctMetaDataPckt.singlePxlCtrl);
-    uint8_t actualMemBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl);
-    int8_t blockCountDiff = newMemBlockCount - actualMemBlockCount;
-
-  // Block management
-  if (blockCountDiff & 0x80) {
+  if ((blockCountDiff & 0x80) && (~blockCountDiff + 1) <= getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned) {
     eraseSctMemBlocks(sctIdx, newMemBlockCount);
   }
-  else if (blockCountDiff) {
+  else if (blockCountDiff && remainingHeapSpace(blockCountDiff)) {
     writeSctMemBlocks(sctIdx, newMemBlockCount);
   }
+  updtPxlsMgmtMetaData(blockCountDiff);
+  updtNeoPxlObj(&neopxlObjArr[sctIdx], sctMetaDataPckt.pxlCount, sctMetaDataPckt.brightness);
 
-  // Pixel management
-  if (sctMetaDataPckt.pxlCount != sctsMetaDatasArr[sctIdx].pxlCount) {
-    // Updating length of neopixel Obj, section info matrix & board infos
-    // neopxlObjArr[sctID].updateLength((uint16_t)sctNewBlockCount);
-    // pixelsMgmtAdd(sctNewBlockCount - sctsMetaDatasArr[sctID].pxlCount);
-    // sctsMetaDatasArr[sctID].pxlCount = sctNewBlockCount;
-
-    // updtPxlsMetaData(sctIdx, memBlocks);
-    // updtNeopxlObj(sctIdx);
-    // updtMgmtMetaDatas((int8_t) memBlocks);
-
-    editPxlCount(sctIdx, sctMetaDataPckt.pxlCount);
-  }
-
-  // Brightness management
-
-  // More condition to test as more section attributes get added (brightness, sctAsPxl, etc.)
+  //**debug**//
+  stripColorFill(sctIdx, pxlMetaDataPtrArr[sctIdx]->rgbwColor);
+  //**debug**//
 }
 
 
@@ -244,30 +342,20 @@ void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 
 
 
-/// @brief Indicates the number of memory block needed or used for
-///        a given section
-/// @param pxlCount Number of pixel to be lit up on the strip
-/// @param singlePxlCtrl Indicating if whole strip is seen as a single pixel
-///                      (Acting as a bool)
-/// @return Required amount of blocks needed or used in heap
-byte sctMemBlocksUsage(byte pxlCount, byte singlePxlCtrl) {
-  return singlePxlCtrl ? singlePxlCtrl : pxlCount;
-}
-
 
 /// @brief Edit the pixel count attribute of a particular section
 /// @param sctID Affected section's index
 /// @param newPxlCount Pixel count to be updated in affected section
-void editPxlCount(uint8_t sctID, uint8_t newPxlCount) {
-  if(sctID < *sctIdxTrackerPtr && remainingHeapSpace(newPxlCount)) {
-    if(newPxlCount < sctsMetaDatasArr[sctID].pxlCount) {
-      eraseSctMemBlocks(sctID, newPxlCount);
-    }
-    else if(newPxlCount > sctsMetaDatasArr[sctID].pxlCount) {
-      writeSctMemBlocks(sctID, newPxlCount);
-    }
-  }
-}
+// void editPxlCount(uint8_t sctID, uint8_t newPxlCount) {
+//   if(sctID < *sctIdxTrackerPtr && remainingHeapSpace(newPxlCount)) {
+//     if(newPxlCount < sctsMetaDatasArr[sctID].pxlCount) {
+//       eraseSctMemBlocks(sctID, newPxlCount);
+//     }
+//     else if(newPxlCount > sctsMetaDatasArr[sctID].pxlCount) {
+//       writeSctMemBlocks(sctID, newPxlCount);
+//     }
+//   }
+// }
 
 
 /// @brief Function that returns the sct_metadata_t obj at the 
@@ -334,124 +422,6 @@ void setupFromSave() {
     // updtMgmtMetaData(memBlocks);
   }
 }
-
-
-
-
-
-//***********    LOCAL FUNCS DEFINITION    ***********//
-
-
-/// @brief Removes mem blocks in any given section. It's done in a bare-metal kind of way,
-///        which is by shifting affected bytes in the heap. The number of bytes to shift
-///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
-///        there are to shift. When reaching the new address of pxlMetaDataPtr, all bytes
-///        are then overwritten with 0x00 as a way to reset them for future use.
-///        Note that this 0x00 byte reset isn't executed when erasing the last sct
-///        because it will be updated when the next one is created
-/// @param sctID Index of the section from which to remove memory blocks
-/// @param sctNewBlockCount New block count (must be lower than original)
-void eraseSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {  
-  
-  uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
-
-  // uint8_t  freedHeapBlocks = sctsMetaDatasArr[sctID].pxlCount - sctNewBlockCount;
-  uint8_t  freedHeapBlocks = actualBlockCount - sctNewBlockCount;
-  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
-
-  byte *heapEraseAddr           = (byte*)pxlMetaDataPtr - freedHeapBytes;
-  byte *heapOverWriteDestAddr   = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount);
-  byte *heapOverWriteSourceAddr = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) + freedHeapBytes;
-
-  uint8_t blocksToShift = 0;
-
-  pxlMetaDataPtr = (pxl_metadata_t*) heapEraseAddr;
-
-  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
-  // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
-  for (uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
-    blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
-    // blocksToShift += sctsMetaDatasArr[i].pxlCount;
-    pxlMetaDataPtrArr[i] -= freedHeapBlocks;
-  }
-  uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
-
-  // This where the overwriting is done
-  while (bytesToShift) {
-    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
-    if (heapOverWriteSourceAddr == heapEraseAddr) {
-      *heapEraseAddr = 0x00;
-      heapEraseAddr += BYTE_SIZE;
-    }
-    heapOverWriteDestAddr += BYTE_SIZE;
-    heapOverWriteSourceAddr += BYTE_SIZE;
-    bytesToShift--;
-  }
-  // Updating length of neopixel Obj, section info matrix & board infos
-  // neopxlObjArr[sctID].updateLength((uint16_t)sctNewBlockCount);
-  // pixelsMgmtRemove(sctsMetaDatasArr[sctID].pxlCount - sctNewBlockCount);
-  // sctsMetaDatasArr[sctID].pxlCount = sctNewBlockCount;
-}
-
-
-/// @brief Adds mem blocks in any given section. It's done in a bare-metal kind of way,
-///        which is by shifting affected bytes in the heap. The number of bytes to shift
-///        is dependent upon block size (pxl_metadata_t byte size) and how many blocks
-///        there are to shift. Once the last address of the new pixel blocks is reached,
-///        existing bytes are overwritten with 0x00 to prevent any strange behavior.
-/// @param sctID Index of the section to add memory blocks to
-/// @param sctNewBlockCount New increased block count (must be higher than original)
-void writeSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {
-
-  uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
-
-  // uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - sctsMetaDatasArr[sctID].pxlCount;
-  uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - actualBlockCount;
-  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
-
-  byte *heapOverWriteDestAddr   = (byte*)pxlMetaDataPtr + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
-  byte *heapOverWriteSourceAddr = (byte*)pxlMetaDataPtr - BYTE_SIZE;                              // Last addr where there is actual info
-  byte *heapMemClearAddr        = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
-
-  uint8_t blocksToShift = 0;
-
-  pxlMetaDataPtr = (pxl_metadata_t*)heapOverWriteDestAddr + BYTE_SIZE;
-
-  // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
-  for(uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
-    blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
-    // blocksToShift += sctsMetaDatasArr[i].pxlCount;
-    pxlMetaDataPtrArr[i] += toBeUsedHeapBlocks;
-  }
-  uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
-
-  // This where the overwriting is done
-  while(bytesToShift) {
-    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
-    if(heapOverWriteSourceAddr == heapMemClearAddr) {
-      *heapMemClearAddr = 0x00;
-      heapMemClearAddr -= BYTE_SIZE;
-    }
-    heapOverWriteDestAddr -= BYTE_SIZE;
-    heapOverWriteSourceAddr -= BYTE_SIZE;
-    bytesToShift--;
-  }
-
-  updtPxlsMetaData(sctID, sctNewBlockCount, actualBlockCount);
-  // Updating the pixel info array with the newly created LEDs
-  // for(uint8_t pxlNbr = sctsMetaDatasArr[sctID].pxlCount; pxlNbr < sctNewBlockCount; pxlNbr++) {
-  //     (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlSctID = sctID;
-  //     (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlID    = pxlNbr;
-  //     (pxlMetaDataPtrArr[sctID] + pxlNbr)->pxlState = IDLE;
-  // }
-
-  // Updating length of neopixel Obj, section info matrix & board infos
-  // neopxlObjArr[sctID].updateLength((uint16_t)sctNewBlockCount);
-  // pixelsMgmtAdd(sctNewBlockCount - sctsMetaDatasArr[sctID].pxlCount);
-  // sctsMetaDatasArr[sctID].pxlCount = sctNewBlockCount;
-}
-
-//***********    LOCAL FUNCS DEFINITION    ***********//
 
 
 
