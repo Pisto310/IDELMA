@@ -16,7 +16,8 @@ The LED pixel strips are instanciated here and scenes are also expanded upon
 
 
 
-//**********    LOCAL VARIABLES DECLARATION   ************//
+//************************************************************    LOCAL VARIABLES DECLARATION   **************************************************************//
+
 
 pxl_metadata_t* pxlMetaDataPtr = (pxl_metadata_t*)calloc(PXLINFO_HEAP_SIZE, sizeof(pxl_metadata_t));
 pxl_metadata_t* pxlMetaDataPtrArr[MAX_NO_SCTS];
@@ -47,14 +48,19 @@ eeprom_chapter_t sctsMetaDataChap = {
   .bytesCount     = (sizeof(sct_metadata_t) * MAX_NO_SCTS)
 };
 
-//**********    LOCAL VARIABLES DECLARATION   ************//
+
+//************************************************************    LOCAL VARIABLES DECLARATION   **************************************************************//
 
 
 
 
 
 
-//**********    LOCAL FUNCTIONS DECLARATION   ************//
+
+
+
+
+//************************************************************    LOCAL FUNCTIONS DECLARATION   **************************************************************//
 
 
 // void editPxlCount(uint8_t sctID, uint8_t newPxlCount);
@@ -73,12 +79,18 @@ void pxlOFF(uint8_t section, uint8_t pixel);
 void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat = 0);
 
 
-//**********    LOCAL FUNCTIONS DECLARATION   ************//
+//************************************************************    LOCAL FUNCTIONS DECLARATION   **************************************************************//
 
 
 
 
-//**********    LOCAL FUNCTIONS DEFINITION   ************//
+
+
+
+
+
+
+//************************************************************    LOCAL FUNCTIONS DEFINITION   ************************************************************//
 
 
 /// @brief Indicates the number of memory block needed or used for
@@ -105,19 +117,6 @@ void updtPxlsMetaData(uint8_t sectionIndex, uint8_t neededBlockSpace, uint8_t px
   }
 }
 
-
-/// @brief Update the necessary Neopixel object attributes through method calling when
-///        creating a section or after having edited an existing one
-/// @param sectionIndex Index of the section for which to edit attr Neopixel attributes
-// void updtNeopxlObj(uint8_t sectionIndex) {
-//   if (sctsMetaDatasArr[sectionIndex].pxlCount != neopxlObjArr[sectionIndex].numPixels()) {
-//     neopxlObjArr[sectionIndex].updateLength((uint16_t) sctsMetaDatasArr[sectionIndex].pxlCount);
-//   }
-
-//   if (sctsMetaDatasArr[sectionIndex].brightness != neopxlObjArr[sectionIndex].getBrightness()) {
-//     neopxlObjArr[sectionIndex].setBrightness(sctsMetaDatasArr[sectionIndex].brightness);
-//   }
-// }
 
 /// @brief Update the necessary Neopixel object attributes through method calling when
 ///        creating a section or after having edited an existing one
@@ -243,13 +242,18 @@ void writeSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {
 }
 
 
-//**********    LOCAL FUNCTIONS DEFINITION   ************//
+//************************************************************    LOCAL FUNCTIONS DEFINITION   ************************************************************//
 
 
 
 
 
-//**********    GLOBAL FUNC DEFINITION   ************//
+
+
+
+
+
+//**************************************************************    GLOBAL FUNC DEFINITION   **************************************************************//
 
 
 /// @brief Create section according to data contained in packet
@@ -343,7 +347,7 @@ void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 ///                        Really only used for consistency w/ createSection & editSection
 ///                        functions.
 void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
-  
+
   if (sctIdx < *sctIdxTrackerPtr && sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl)) {
     
     //**debug**//
@@ -351,37 +355,19 @@ void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
     //**debug**//
     
     eraseSctMemBlocks(sctIdx, 0);
-    
-    neopxlObjArr[sctIdx].updateLength((uint16_t) 0);
-    pixelsMgmtRemove(sctsMetaDatasArr[sctIdx].pxlCount);
-    sctsMetaDatasArr[sctIdx].pxlCount = 0;
-    
+    updtNeoPxlObj(&neopxlObjArr[sctIdx], 0, 0);
+    updtPxlsMgmtMetaData(0 - sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl));
     sectionsMgmtRemove();
+    sctsMetaDatasArr[sctIdx] = sctMetaDataPckt;
   }
 }
 
 
-//**********    GLOBAL FUNC DEFINITION   ************//
+//**************************************************************    GLOBAL FUNC DEFINITION   **************************************************************//
 
 
 
 
-
-
-
-/// @brief Edit the pixel count attribute of a particular section
-/// @param sctID Affected section's index
-/// @param newPxlCount Pixel count to be updated in affected section
-// void editPxlCount(uint8_t sctID, uint8_t newPxlCount) {
-//   if(sctID < *sctIdxTrackerPtr && remainingHeapSpace(newPxlCount)) {
-//     if(newPxlCount < sctsMetaDatasArr[sctID].pxlCount) {
-//       eraseSctMemBlocks(sctID, newPxlCount);
-//     }
-//     else if(newPxlCount > sctsMetaDatasArr[sctID].pxlCount) {
-//       writeSctMemBlocks(sctID, newPxlCount);
-//     }
-//   }
-// }
 
 
 /// @brief Function that returns the sct_metadata_t obj at the 

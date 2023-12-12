@@ -115,13 +115,19 @@ void setup() {
   
   // dumpRam(Serial, &ramStart, 2480);
 
+  // createSection(5, {6, 150, 0});
+
   // editSection(0, {3, 76, 1});
   // editSection(1, {6, 168, 1});
   // editSection(2, {5, 29, 0});
   // editSection(3, {3, 49, 0});
   // editSection(4, {3, 125, 1});
 
-  // createSection(5, {6, 150, 0});
+  
+  // deleting section 2
+  // editSection(2, {5, 216, 1});
+  // editSection(3, {6, 125, 0});
+  // deleteSection(4, {0, 0, 0});
 
   // Serial.print(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned);
   // Serial.println();  
