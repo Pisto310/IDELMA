@@ -93,12 +93,12 @@ byte sctMemBlocksUsage(byte pxlCount, byte singlePxlCtrl) {
 
 
 /// @brief Update the necessary pxl_metadata_t parameters for each pixels of a section
-///        when creating a section of after hhaving edited an existing one 
+///        when creating a section or after having edited an existing one 
 /// @param sectionIndex     Index of the section for which to set the pxls metadata
 /// @param neededBlockSpace Number of memory blocks to set
 /// @param pxlStartIndex    Index of the pixel at which to start the updating of params
 void updtPxlsMetaData(uint8_t sectionIndex, uint8_t neededBlockSpace, uint8_t pxlStartIdx = 0) {
-  for(uint8_t pxlIdx = pxlStartIdx; pxlIdx < neededBlockSpace; pxlIdx++) {
+  for (uint8_t pxlIdx = pxlStartIdx; pxlIdx < neededBlockSpace; pxlIdx++) {
     (pxlMetaDataPtrArr[sectionIndex] + pxlIdx)->pxlSctID = sectionIndex;
     (pxlMetaDataPtrArr[sectionIndex] + pxlIdx)->pxlID    = pxlIdx;
     (pxlMetaDataPtrArr[sectionIndex] + pxlIdx)->pxlState = IDLE;
@@ -162,36 +162,36 @@ void eraseSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {
   
   uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
 
-  // uint8_t  freedHeapBlocks = sctsMetaDatasArr[sctID].pxlCount - sctNewBlockCount;
-  uint8_t  freedHeapBlocks = actualBlockCount - sctNewBlockCount;
-  uint16_t freedHeapBytes  = freedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
+  uint8_t  freedBlocks = actualBlockCount - sctNewBlockCount;
+  uint16_t freedBytes  = freedBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
-  byte *heapEraseAddr           = (byte*)pxlMetaDataPtr - freedHeapBytes;
-  byte *heapOverWriteDestAddr   = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount);
-  byte *heapOverWriteSourceAddr = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) + freedHeapBytes;
+  byte *overWriteDestAddr   = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount);
+  byte *overWriteSourceAddr = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) + freedBytes;
+  byte *memClearAddr        = (byte*)pxlMetaDataPtr - freedBytes;
 
   uint8_t blocksToShift = 0;
 
-  pxlMetaDataPtr = (pxl_metadata_t*) heapEraseAddr;
+  pxlMetaDataPtr = (pxl_metadata_t*) memClearAddr;
 
   // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
   // While iterating, also changing the ptr addr contained in the array of ptr to pixel info
   for (uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
     blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
     // blocksToShift += sctsMetaDatasArr[i].pxlCount;
-    pxlMetaDataPtrArr[i] -= freedHeapBlocks;
+    pxlMetaDataPtrArr[i] -= freedBlocks;
   }
+  
   uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
   // This where the overwriting is done
   while (bytesToShift) {
-    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
-    if (heapOverWriteSourceAddr == heapEraseAddr) {
-      *heapEraseAddr = 0x00;
-      heapEraseAddr += BYTE_SIZE;
+    *overWriteDestAddr = *overWriteSourceAddr;
+    if (overWriteSourceAddr == memClearAddr) {
+      *memClearAddr = 0x00;
+      memClearAddr += BYTE_SIZE;
     }
-    heapOverWriteDestAddr += BYTE_SIZE;
-    heapOverWriteSourceAddr += BYTE_SIZE;
+    overWriteDestAddr += BYTE_SIZE;
+    overWriteSourceAddr += BYTE_SIZE;
     bytesToShift--;
   }
 }
@@ -208,35 +208,35 @@ void writeSctMemBlocks(uint8_t sctID, uint8_t sctNewBlockCount) {
 
   uint8_t actualBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctID].pxlCount, sctsMetaDatasArr[sctID].singlePxlCtrl);
 
-  // uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - sctsMetaDatasArr[sctID].pxlCount;
-  uint8_t  toBeUsedHeapBlocks = sctNewBlockCount - actualBlockCount;
-  uint16_t toBeUsedHeapBytes  = toBeUsedHeapBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
+  uint8_t  assignedBlocks = sctNewBlockCount - actualBlockCount;
+  uint16_t assignedBytes  = assignedBlocks * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
-  byte *heapOverWriteDestAddr   = (byte*)pxlMetaDataPtr + toBeUsedHeapBytes - BYTE_SIZE;          // This addr should be the last of the heap where there will be data
-  byte *heapOverWriteSourceAddr = (byte*)pxlMetaDataPtr - BYTE_SIZE;                              // Last addr where there is actual info
-  byte *heapMemClearAddr        = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
+  byte *overWriteDestAddr   = (byte*)pxlMetaDataPtr + assignedBytes - BYTE_SIZE;                   // This addr should be the last of the heap where there will be data
+  byte *overWriteSourceAddr = (byte*)pxlMetaDataPtr - BYTE_SIZE;                                   // Last addr where there is actual info
+  byte *memClearAddr        = (byte*)(pxlMetaDataPtrArr[sctID] + sctNewBlockCount) - BYTE_SIZE;    // First addr where to erase the bytes to make room
 
   uint8_t blocksToShift = 0;
 
-  pxlMetaDataPtr = (pxl_metadata_t*)heapOverWriteDestAddr + BYTE_SIZE;
+  pxlMetaDataPtr = (pxl_metadata_t*) (overWriteDestAddr + BYTE_SIZE);
 
   // Calculating number of pxl_metadata_t obj to shift in heap and then to how many bytes that amounts
   for(uint8_t i = sctID + 1; i < *sctIdxTrackerPtr; i++) {
     blocksToShift += sctMemBlocksUsage(sctsMetaDatasArr[i].pxlCount, sctsMetaDatasArr[i].singlePxlCtrl);
     // blocksToShift += sctsMetaDatasArr[i].pxlCount;
-    pxlMetaDataPtrArr[i] += toBeUsedHeapBlocks;
+    pxlMetaDataPtrArr[i] += assignedBlocks;
   }
+
   uint16_t bytesToShift = blocksToShift * sizeof(pxl_metadata_t) * BYTE_SIZE;
 
   // This where the overwriting is done
   while(bytesToShift) {
-    *heapOverWriteDestAddr = *heapOverWriteSourceAddr;
-    if(heapOverWriteSourceAddr == heapMemClearAddr) {
-      *heapMemClearAddr = 0x00;
-      heapMemClearAddr -= BYTE_SIZE;
+    *overWriteDestAddr = *overWriteSourceAddr;
+    if(overWriteSourceAddr == memClearAddr) {
+      *memClearAddr = 0x00;
+      memClearAddr -= BYTE_SIZE;
     }
-    heapOverWriteDestAddr -= BYTE_SIZE;
-    heapOverWriteSourceAddr -= BYTE_SIZE;
+    overWriteDestAddr -= BYTE_SIZE;
+    overWriteSourceAddr -= BYTE_SIZE;
     bytesToShift--;
   }
   updtPxlsMetaData(sctID, sctNewBlockCount, actualBlockCount);
@@ -276,7 +276,7 @@ void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
     neopxlObjArr[sctIdx].begin();
 
     //**debug**//
-    stripColorFill(sctIdx, 0xF542F200);
+    stripColorFill(sctIdx, 0x000000A9);
     //**debug**//
   }
 }
@@ -288,21 +288,45 @@ void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 ///                        contained in this input param
 void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 
+  //**debug**//
+  stripOFF(sctIdx);
+  //**debug**//
+
   uint8_t newMemBlockCount = sctMemBlocksUsage(sctMetaDataPckt.pxlCount, sctMetaDataPckt.singlePxlCtrl);
   uint8_t actualMemBlockCount = sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl);
   int8_t blockCountDiff = newMemBlockCount - actualMemBlockCount;
+  uint8_t blockOpSignBit = (blockCountDiff & 0x80) >> 7;
 
-  if ((blockCountDiff & 0x80) && (~blockCountDiff + 1) <= getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned) {
-    eraseSctMemBlocks(sctIdx, newMemBlockCount);
+  void (*memBlocksModFuncPtrArr[2]) (uint8_t, uint8_t) = {
+    writeSctMemBlocks,
+    eraseSctMemBlocks
+  };
+
+  bool blockOpCondCheck[2] = {
+    remainingHeapSpace(blockCountDiff),
+    (~blockCountDiff + 1) <= getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned
+  };
+
+  if (blockOpCondCheck[blockOpSignBit]) {
+    memBlocksModFuncPtrArr[blockOpSignBit] (sctIdx, newMemBlockCount);
+    sctsMetaDatasArr[sctIdx] = sctMetaDataPckt;
+    updtNeoPxlObj(&neopxlObjArr[sctIdx], sctMetaDataPckt.pxlCount, sctMetaDataPckt.brightness);
+    updtPxlsMgmtMetaData(blockCountDiff);
   }
-  else if (blockCountDiff && remainingHeapSpace(blockCountDiff)) {
-    writeSctMemBlocks(sctIdx, newMemBlockCount);
-  }
-  updtPxlsMgmtMetaData(blockCountDiff);
-  updtNeoPxlObj(&neopxlObjArr[sctIdx], sctMetaDataPckt.pxlCount, sctMetaDataPckt.brightness);
+
+  // if ((blockCountDiff & 0x80) && (~blockCountDiff + 1) <= getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned) {
+  //   eraseSctMemBlocks(sctIdx, newMemBlockCount);
+  // }
+  // else if (blockCountDiff && remainingHeapSpace(blockCountDiff)) {
+  //   writeSctMemBlocks(sctIdx, newMemBlockCount);
+  // }
+  // sctsMetaDatasArr[sctIdx] = sctMetaDataPckt;
+  // updtNeoPxlObj(&neopxlObjArr[sctIdx], sctMetaDataPckt.pxlCount, sctMetaDataPckt.brightness);
+  // updtPxlsMgmtMetaData(blockCountDiff);
 
   //**debug**//
-  stripColorFill(sctIdx, pxlMetaDataPtrArr[sctIdx]->rgbwColor);
+  uint32_t color = (random(0x00, 0xFF) << 24 | random(0x00, 0xFF) << 16 | random(0x00, 0xFF) << 8 | 0x00);
+  stripColorFill(sctIdx, color);
   //**debug**//
 }
 
@@ -319,13 +343,15 @@ void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
 ///                        Really only used for consistency w/ createSection & editSection
 ///                        functions.
 void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt) {
-  if (sctIdx < *sctIdxTrackerPtr && sctsMetaDatasArr[sctIdx].pxlCount) {
+  
+  if (sctIdx < *sctIdxTrackerPtr && sctMemBlocksUsage(sctsMetaDatasArr[sctIdx].pxlCount, sctsMetaDatasArr[sctIdx].singlePxlCtrl)) {
     
     //**debug**//
     stripOFF(sctIdx);
     //**debug**//
     
     eraseSctMemBlocks(sctIdx, 0);
+    
     neopxlObjArr[sctIdx].updateLength((uint16_t) 0);
     pixelsMgmtRemove(sctsMetaDatasArr[sctIdx].pxlCount);
     sctsMetaDatasArr[sctIdx].pxlCount = 0;
@@ -580,14 +606,14 @@ void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
     uint8_t  sat = (uint8_t) ((color & 0x0000FF00) >>  8);
     uint8_t  val = (uint8_t)  (color & 0x000000FF)       ;
     
-    for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+    for(uint8_t pixel = 0; pixel < sctMemBlocksUsage(sctsMetaDatasArr[section].pxlCount, sctsMetaDatasArr[section].singlePxlCtrl); pixel++) {
       pxlColorUpdt(section, pixel, color, hsvFormat);
     }
     neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(neopxlObjArr[section].ColorHSV(hue, sat, val)));
     neopxlObjArr[section].show();
   }
   else {
-    for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+    for(uint8_t pixel = 0; pixel < sctMemBlocksUsage(sctsMetaDatasArr[section].pxlCount, sctsMetaDatasArr[section].singlePxlCtrl); pixel++) {
       pxlColorUpdt(section, pixel, color);
     }
     neopxlObjArr[section].fill(neopxlObjArr[section].gamma32(rgbw2wrgb(color)));
@@ -597,7 +623,7 @@ void stripColorFill(uint8_t section, uint32_t color, bool hsvFormat) {
 
 // turn OFF all LEDs in a given strip (section)
 void stripOFF(uint8_t section) {
-  for(uint8_t pixel = 0; pixel < neopxlObjArr[section].numPixels(); pixel++) {
+  for(uint8_t pixel = 0; pixel < sctMemBlocksUsage(sctsMetaDatasArr[section].pxlCount, sctsMetaDatasArr[section].singlePxlCtrl); pixel++) {
       pxlColorUpdt(section, pixel, 0x00000000);
   }
   neopxlObjArr[section].clear();

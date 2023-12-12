@@ -55,9 +55,6 @@ bool pxlColorOutTest = 0;
 
 //************    TEST VAR DECLARATIOIN     **************
 
-
-// uint16_t heartBeat = 500;                  // in milliseconds
-
 void setup() {
 
   // initializing the built-in LED for HeartBeat
@@ -109,76 +106,45 @@ void setup() {
   // updatingPixelAttr(2, 2, 0x99999999);
   // updatingPixelAttr(2, 5, 0x99999999);
 
-  // dumpRam(Serial, &ramStart, 2480);
-
-  // configBrd(test, 5);
-  // configBrd(testt, 5);
-  // configBrd(testtt, 5);
-
-  // sctsConfigSave();
-
-  // dumpRam(Serial, &ramStart, 2480);
-
-  //*************   STRIP AND LEDS SET-UP   *************//
+  // Serial.print(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned);
+  // Serial.println();  
+  // Serial.print(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->remaining);
+  // Serial.println();
+  // Serial.print((uint16_t) pxlMetaDataPtr, HEX);
+  // Serial.println();
   
-  //neopxlObjSetUp(sctZero, neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  //neopxlObjSetUp(sctOne,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
-  //neopxlObjSetUp(sctTwo,  neopxlObjArr, ptrSctCntTracker, brightnessLED); //, 0x38d6aa00);  //0xc4247800);
-  //neopxlObjSetUp(sctSix,  neopxlObjArr, ptrSctCntTracker, brightnessLED);
+  // dumpRam(Serial, &ramStart, 2480);
 
-  //*************   STRIP AND LEDS SET-UP   *************//
+  // editSection(0, {3, 76, 1});
+  // editSection(1, {6, 168, 1});
+  // editSection(2, {5, 29, 0});
+  // editSection(3, {3, 49, 0});
+  // editSection(4, {3, 125, 1});
+
+  // createSection(5, {6, 150, 0});
+
+  // Serial.print(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->assigned);
+  // Serial.println();  
+  // Serial.print(getBrdMgmtMetaDatasPtr().pxlsMgmtMetaDataPtr->remaining);
+  // Serial.println();
+  // Serial.print((uint16_t) pxlMetaDataPtr, HEX);
+  // Serial.println();
+
+  // dumpRam(Serial, &ramStart, 2480);
 }
 
-void loop() {
 
-  // if(pxlMetaDataPtr && !sparkleTest) {
-  //   dumpRam(Serial, &ramStart, 2480);     // was 8192 for the whole RAM
-  //   sparkleTest = !sparkleTest;
-  // }
+void loop() {
   
   mcuHeartBeat(HEARTBEAT_RHYTHM);
-
-  // Serial.write(array_1, sizeof(array_1));
-	// delay(1000);
   
   // Gonna have to check for all serial (USB Serial and BT Serial 1)
   
   serialRxCheck(&usbSerial);
   serialTxCheck(&usbSerial);
 
-  // stripColorFill(0, 0xFD8A7F00);
-  // stripColorFill(1, 0x28FFA300);
-  // stripColorFill(2, 0xFEC3177F);
-  // stripColorFill(2, 0xFD8A7F00);
-  // stripColorFill(3, 0xFD7E0800);
-  // stripColorFill(4, 0xFD8A7F00);
-  // stripColorFill(5, 0xFD7E0800);
-  // stripColorFill(6, 0x000000B4);
-  // stripColorFill(7, 0xFFFF0000);
-  // stripColorFill(8, 0xFD8A7F00);
 
-  // pixelActionsHandler();
-  
-  // if(Serial.available()) {
-  //   serialRxRead(&usbSerial);
-  //   serialColorRx(&usbSerial);
-  //   for(uint8_t i = 0; i < usbSerial.nbXtractedBytes; i++) {
-  //     Serial.println(usbSerial.rxByteBuf[i]);
-  //   }
-  //   serialInterpreter(&usbSerial);
-  // }
-
-
-
-  // pxlIterator(4);
-
-/*   if(sparkleTest) {
-    sparkleInit(0);
-    sparkleInit(1);
-    sparkleTest = !sparkleTest;
-  }
-
-  if(hueTest) {
+/*  if(hueTest) {
 
     uint32_t testColor = 0x9f50d300;
     
@@ -243,22 +209,4 @@ void loop() {
   } */
   // Arduino read the bytes in the ASCII format. Sending '1' and printing it on the
   // serial monitor gives '49', its ASCII equivalent
-  
- 
-
-  /*
-  serialReadToArray(Serial1, btBuffer, 64);
-
-  if(!strncmp(btBuffer, play, 4)) {
-    btFlag = 1;
-    Serial1.print("Heartbeat is good");
-  }
-
-  if(!strncmp(btBuffer, stop, 4)) {
-    btFlag = 0;
-    Serial1.println("Heartbeat has stopped");
-  }
-
-  Serial1.println(btBuffer);
-  */
 }
