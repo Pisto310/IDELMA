@@ -10,7 +10,32 @@ header file for declaring the functions (scenes) associated with the SK6812 LEDs
 #include "EEPROM_lib.h"
 #include "User_Lib.h"
 #include "Color_Formatting.h"
-#include "LED_Actions.h"
+
+
+//************************************************************    GLOBAL TYPES DECLARATION   ************************************************************//
+
+typedef enum PixelStates{
+  IDLE,                                     // LED is ready for action
+  HSV_FADE,                                 // LED is in the process of fading in HSV color space
+  RGB_FADE,                                 // LED is in the process of fading in RGB color space
+  BLINK_ONCE,                               // LED is set to blink only once
+  BLINK,                                    // LED is blinking
+  SPARKLE                                   // LED is in the process of sparkling
+}pixel_state_t;
+
+
+typedef struct PixelActionTime {
+  int32_t actionOneTime;                    // time between each step for hue (hueFade) or red (rgbFade). Also, default param. for other timed actions
+  int32_t actionTwoTime;                    // time between each step for sat (hueFade) or grn (rgbFade)
+  int32_t actionThreeTime;                  // time between each step for val (hueFade) or blu (rgbFade)
+}pixel_actionTime_t;
+
+
+typedef struct PixelActionStartTime {
+  uint32_t actionOneStart;                  // start time for action one
+  uint32_t actionTwoStart;                  // start time for action two
+  uint32_t actionThreeStart;                // start time for action three
+}pixel_actionStart_t;
 
 
 // struct to store the info of each pixel
@@ -27,6 +52,7 @@ typedef struct PixelMetaDatas {
   uint32_t            hsvTarget;            // registered target HSV color for HSV_FADE action
 }pxl_metadata_t;
 
+
 // struct to store the metadatas of a section of pixel
 typedef struct SctMetaDatas {
   byte pxlCount;
@@ -34,56 +60,43 @@ typedef struct SctMetaDatas {
   byte singlePxlCtrl;
 }sct_metadata_t;
 
-
-//**********   SK6812 STRIPS DECLARATION   **********//
-
-// One Adafruit_NeoPixel object is equivalent to 22 bytes in RAM, regardless of how many LED there are per sections
-extern Adafruit_NeoPixel  sct_0;
-extern Adafruit_NeoPixel  sct_1;
-extern Adafruit_NeoPixel  sct_2;
-extern Adafruit_NeoPixel  sct_3;
-extern Adafruit_NeoPixel  sct_4;
-extern Adafruit_NeoPixel  sct_5;
-extern Adafruit_NeoPixel  sct_6;
-extern Adafruit_NeoPixel  sct_7;
-extern Adafruit_NeoPixel  sct_8;
-extern Adafruit_NeoPixel  sct_9;
-extern Adafruit_NeoPixel sct_10;
-extern Adafruit_NeoPixel sct_11;
+//*************************************************************     GLOBAL TYPES DECLARATION   ************************************************************//
 
 
-// 2D array containing the section number (row) and each pixel of that section (column)
-// volatile extern pxl_metadata_t stripsArrayOfPxl[SCT_COUNT][LED_COUNT_MAX];
-
-//**********   SK6812 STRIPS DECLARATION   **********//
 
 
-extern pxl_metadata_t* pxlMetaDataPtr;
-//extern pxl_metadata_t* pxlMetaDataPtrArr[];
-//extern Adafruit_NeoPixel neopxlObjArr[];
 
 
-//**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
+
+
+//**************************************************************   GLOBAL FUNC DECLARATION   **************************************************************//
 
 void createSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
 void editSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
 void deleteSection(byte sctIdx, sct_metadata_t sctMetaDataPckt);
-                
-                // TEMPORARY //
-void updatingPixelAttr(uint8_t section, uint8_t pixel, uint32_t whatev);
-                // TEMPORARY //
-
-sct_metadata_t getSctMetaDatas(uint8_t index);
-sct_metadata_t* getSctMetaDatasPtr();
 
 void sctsConfigSave();
 void sctsConfigRead();
+
+sct_metadata_t* getSctMetaDatasPtr();
+byte sctMemBlocksUsage(byte pxlCount, byte singlePxlCtrl);
+
+//**************************************************************   GLOBAL FUNC DECLARATION   **************************************************************//
+
+
+
+
+
+
+
+
+//**************************************************************   DEBUG   **************************************************************//
+
 void sctsConfigRst();
+void allOff();
 
-void stripOFF(uint8_t section);
+//**************************************************************   DEBUG   **************************************************************//
 
-
-//**********    GLOBAL FUNCTIONS DECLARATION   ************//
 
 #endif  /*  SK6812_H_ */

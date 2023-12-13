@@ -9,6 +9,9 @@ Description : All things serial lib header file
 
 #include "Arduino.h"
 #include "HardwareSerial.h"
+#include "User_Lib.h"
+#include "Board.h"
+#include "SK6812.h"
 
 #define USER_BUFFER_SIZE    128
 // #if SERIAL_RX_BUFFER_SIZE >= SERIAL_TX_BUFFER_SIZE

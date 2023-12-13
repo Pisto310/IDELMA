@@ -27,9 +27,9 @@ Description : Custom EEPROM library created by the author to use in IDELMA proje
 //**********    GLOBAL TYPES DECLARATION   ************//
 
 typedef struct EepromChapter {
-  byte*    tocStatusIndic;
-  uint8_t  firstPgeNbr;
-  uint16_t bytesCount;
+  uint8_t*  tocStatusIndic;
+  uint8_t   firstPgeNbr;
+  uint16_t  bytesCount;
 }eeprom_chapter_t;
 
 //**********    GLOBAL TYPES DECLARATION   ************//

@@ -186,16 +186,11 @@ void pixelsMgmtRemove(uint8_t spaceFreed) {
 
 
 //******************************************           DEBUG           ************************************************//
+
 void eepromReset() {
   sctsConfigRst();
 }
 
-
-void allOff() {
-  for (uint8_t i = 0; i < sctsMgmtMetaData.assigned; i++) {
-    stripOFF(i);
-  }
-}
 //******************************************           DEBUG           ************************************************//
 
 

@@ -65,8 +65,8 @@ void setup() {
   usbSerial.serialPort = &Serial;
   //Serial.setTimeout(1);
 
-  // debugToc();
   // sctsConfigRst();
+  // debugToc();
 
   bootUp();
 

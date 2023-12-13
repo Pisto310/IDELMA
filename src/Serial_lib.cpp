@@ -5,9 +5,6 @@ Description : All things serial lib source file
 */
 
 #include "Serial_lib.h"
-#include "User_Lib.h"
-#include "Board.h"
-#include "SK6812.h"
 
 #include <math.h>
 #include <string.h>
@@ -185,6 +182,7 @@ void serialRqstHandler(serial_obj_t *serialObj) {
   case RQST_SAVE_CONFIG:
     {
       sctsConfigSave();
+      // sendMetaData(serialObj, &(getBrdMgmtMetaDatasPtr().sctsMgmtMetaDataPtr)->assigned, 1);
       sendAck(serialObj);
       break;
     }

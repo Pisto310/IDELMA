@@ -8,7 +8,7 @@ Description : All manipulations related to reformatting colors (8-bit to 32-bit,
 
 
 
-//**********    GLOBAL FUNC DEFINITION   ************//
+//**************************************************************    GLOBAL FUNC DEFINITION   **************************************************************//
 
 
 /// @brief Re-formats a 32-bit RGBW color scheme to a 32-bit WRGB one
@@ -104,7 +104,7 @@ uint32_t rgbw2hsv(uint32_t rgbwColor) {
   return(((uint32_t)hue << 16) | ((uint32_t)sat << 8) | ((uint32_t)val));
 }
 
-//**********    GLOBAL FUNC DEFINITION   ************//
+//**************************************************************    GLOBAL FUNC DEFINITION   **************************************************************//
 
 
 /*

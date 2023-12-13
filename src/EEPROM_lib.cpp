@@ -49,7 +49,7 @@ uint8_t getChapStatusIndic(eeprom_chapter_t eepromChap) {
 ///        Interesting to note that the update() func needs the EEPROM
 ///        index, which acts just like an address (EEPROM size is 4KB).
 ///        After the Chapter is written, the chapter index state of the
-///        content table is set to 1 for each chap pages
+///        content table is set (btwn 1 to 255) for each chap pages
 /// @param eepromChap eepromChapter type obj to write to
 /// @param dataAddr   Start address of data to write to EEPROM
 void eepromWriteChap(eeprom_chapter_t eepromChap, byte* dataAddr) {
@@ -62,7 +62,7 @@ void eepromWriteChap(eeprom_chapter_t eepromChap, byte* dataAddr) {
     // Serial.println(EEPROM.read(EEPROM_PAGE_FIRST_IDX(eepromChap.firstPgeNbr) + i), HEX);
   }
   // Serial.println(' ');
-  setTocChapStatus(eepromChap.firstPgeNbr, EEPROM_CHAP_PAGE_LEN(eepromChap.bytesCount), *eepromChap.tocStatusIndic);
+  setTocChapStatus(eepromChap.firstPgeNbr, EEPROM_CHAP_PAGE_LEN(eepromChap.bytesCount), *(eepromChap.tocStatusIndic));
 }
 
 
